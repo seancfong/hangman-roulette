@@ -56,7 +56,7 @@ socket.on('update', (gameData) => {
                 // display current letter data
                 let d = document.createElement('div');
                 let l = document.createElement('p');
-                if (letter == ' '){
+                if (letter == ' '){ 
                     l.innerHTML = '_';
                 } else {
                     l.innerHTML = letter;
