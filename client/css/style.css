@@ -1,0 +1,33 @@
+* {
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: #FAF9F6;
+}
+
+@media (max-width: 480px) {
+    #vote-chart-container {
+        padding-left: 0;
+        padding-right: 0;
+        background-color: #f00;
+    }
+}
+
+.vote-container {
+    position: relative;
+}
+
+#vote-chart {
+    max-height: inherit;
+    width: inherit;
+}
+
+#vote-text-input{
+    max-width: 30%;
+}
+
+#hangman-display {
+    background-color: #000000;
+}
