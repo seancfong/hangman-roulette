@@ -1,6 +1,10 @@
 console.log('Oh snap, who told you to look at the console?');
 console.log('Nothing useful is going to be here anyways, but feel free to just stay here if you insist.');
 
+// DOM objects
+const votingCountHeader = document.getElementById('voting-count-header');
+const wordBox = document.getElementById('hangman-word-content');
+
 // Create chart
 const ctx = document.getElementById('vote-chart').getContext('2d');
 
@@ -21,6 +25,9 @@ const chart = new Chart(ctx, {
     options: {
         plugins: {
             tooltip: false,
+            legend: {
+                display: false
+            }
         },
         responsive: true,
         
@@ -35,9 +42,41 @@ const socket = io();
 socket.on('update', (gameData) => {
     var alphaKeys = Object.entries(gameData.voteOptions);
     var totalVotes = gameData.totalVotes;
+    var wordStates = gameData.wordStates;
 
+    console.log(wordStates);
     console.log(totalVotes);
 
+    // Update current word statuses
+    console.log(wordBox.children);
+
+    if (wordBox.children.length == 0) {
+        for (let wordArray of wordStates) {
+            for (let letter of wordArray) {
+                // display current letter data
+                let d = document.createElement('div');
+                let l = document.createElement('p');
+                if (letter == ' '){
+                    l.innerHTML = '_';
+                } else {
+                    l.innerHTML = letter;
+                }
+                
+                d.appendChild(l);
+                wordBox.appendChild(d);
+            }
+            // insert line break
+            let br = document.createElement('br');
+            wordBox.appendChild(br);
+        }
+        
+    }
+    
+
+    // Update votes
+    votingCountHeader.innerHTML = `Open Voting Total: ${totalVotes}`;
+
+    // Update chart
     const data = chart.data;
 
     // Iterate through alphabet keys

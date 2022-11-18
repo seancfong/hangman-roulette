@@ -7,14 +7,6 @@ body {
     background-color: #FAF9F6;
 }
 
-@media (max-width: 480px) {
-    #vote-chart-container {
-        padding-left: 0;
-        padding-right: 0;
-        background-color: #f00;
-    }
-}
-
 .vote-container {
     position: relative;
 }
@@ -29,5 +21,58 @@ body {
 }
 
 #hangman-display {
-    background-color: #000000;
+    width: 100%;
+    background-color: #e0e0e0;
+}
+
+#hangman-word-content {
+    max-height: inherit;
+    width: 100%;
+    background-color: #fff;
+    vertical-align: middle;
+    padding-top: 5px;
+}
+
+#hangman-word-content div {
+    display: inline-block;
+    border: 2px solid #eee;
+    background-color: #fcfcfc;
+    margin: 0 0.1rem 0.2rem;
+    padding: 0 0.5rem;
+}
+
+p {
+    font-size: 24px;
+    text-align: center;
+    line-height: 1.25;
+    margin: 0 auto 5px auto;
+    padding: 0;
+}
+
+h3 {
+    font-size: 20px;
+}
+
+@media (max-width: 300px) {
+    #vote-chart-container {
+        padding: 0;
+    }
+}
+
+@media (min-width: 300px) and (max-width: 576px) {
+    #vote-chart-container {
+        padding: 10px;
+    }
+
+    p {
+        font-size: 16px;
+        border: 1px solid #eee;
+    }
+}
+
+@media (min-width: 576px) and (max-width: 768px) {
+    #vote-chart-container {
+        padding-left: 0;
+        padding-right: 0;
+    }
 }
