@@ -1,0 +1,23 @@
+{
+  "name": "terrible-hangman",
+  "version": "1.0.0",
+  "description": "Hangman, but everybody has a chance to vote.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cnfgsean/terrible-hangman.git"
+  },
+  "author": "Sean Collan Fong",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/cnfgsean/terrible-hangman/issues"
+  },
+  "homepage": "https://github.com/cnfgsean/terrible-hangman#readme",
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.5.3"
+  }
+}
