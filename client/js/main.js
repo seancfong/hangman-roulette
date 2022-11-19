@@ -10,7 +10,7 @@ const ctx = document.getElementById('vote-chart').getContext('2d');
 const drawingCanvas = document.getElementById('hangman-display');
 const ctxDraw = drawingCanvas.getContext('2d');
 
-const chartData = {
+var chartData = {
     labels: [],
     datasets: [
         {
@@ -50,7 +50,7 @@ socket.on('update', (gameData) => {
     console.log(totalVotes);
 
     // Update current word statuses
-    console.log(wordBox.children);
+    // console.log(wordBox.children);
 
     if (wordBox.children.length == 0) {
         for (let wordArray of wordStates) {
@@ -77,12 +77,10 @@ socket.on('update', (gameData) => {
             for (let j = 0; j < wordStates[i].length; j++) {
                 let d = wordBox.children[index];
                 let p = d.children[0];
-                console.log(d, p)
                 if (wordBox.children[index].tagName === 'BR') {
                     index += 2;
                     continue;
                 }
-                console.log(index, wordStates[i][j]);
 
                 if (wordStates[i][j] == ' '){ 
                     p.innerHTML = '_';
@@ -154,7 +152,7 @@ socket.on('spinWheel', (data) => {
         } else if (dTheta == 1 && chart.options.rotation == (randomDegree + 90) % 360) {
             clearInterval(rotationInterval);
             console.log('done spinning');
-            revealLetter(letter);
+            setTimeout(revealLetter, 3000, letter);
         }
     }, 10);
 });
@@ -162,12 +160,26 @@ socket.on('spinWheel', (data) => {
 
 // Hangman Canvas
 const revealLetter = (letter) => {
-    socket.emit('request-update');
-
     console.log(letter);
 
-    let canvasWidth = drawingCanvas.width;
-    let canvasHeight = drawingCanvas.height;
+    socket.emit('new-round');
+
+    // reset client chart data
+    let ds = chart.data.datasets[0];
+
+    console.log('ds data', ds.data);
+    console.log('data labels', chart.data.labels);
+
+    ds.data = [];
+    chart.data.labels = [];
+
+    console.log('all data', chart.data);
+
+    chart.update();
+
+    socket.emit('request-update');
+
+    
 
     
 }

@@ -10,7 +10,7 @@ const server = http.createServer(app);
 const io = socketio(server);
 
 const DEBUG = true;
-const TIMER_LENGTH = 15000;
+const TIMER_LENGTH = 1000;
 
 var curWords;
 var voteOptions;
@@ -144,6 +144,12 @@ io.on('connection', socket => {
         io.emit('update', generateUpdateObject());
     });
 
+    socket.on('new-round', (data) => {
+        console.log('new round');
+        resetGameLoop();
+        io.emit('update', generateUpdateObject());
+    });
+
 });
 
 
@@ -172,21 +178,20 @@ const resetGameLoop = () => {
     // reset data
     chartData = {};
 
+    // reset all votes
+    totalVotes = 0;
+    resetVoteOptions();
+    openVoting = true;
+
     if (DEBUG) {
         console.log(voteOptions);
         console.log(curWords);
         console.log(wordStates);
     }
-    
-    
-    
 };
 
 const resetGame = () => {
-    // reset all votes
-    totalVotes = 0;
-    resetVoteOptions();
-    openVoting = true;
+    
 
     // generate new words
     curWords = [];
