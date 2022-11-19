@@ -10,7 +10,7 @@ const server = http.createServer(app);
 const io = socketio(server);
 
 const DEBUG = true;
-const TIMER_LENGTH = 1000;
+const TIMER_LENGTH = 3000;
 
 var curWords;
 var voteOptions;
@@ -86,16 +86,17 @@ const selectVote = () => {
     }
     console.log(allVotes);
 
-    let randomDegree = Math.floor(Math.random() * (355 - 0 + 1) + 0);
+    let randomDegree = Math.floor(Math.random() * (358) + 1);  // between 1 and 359
 
-    let realDegree = (-1 * randomDegree) + 360;
+    let realDegree = (-1 * randomDegree) + 360;  // between 359 and 1
     let degreeIndex = Math.floor((realDegree / 360) * allVotes.length);
 
     letter = allVotes[degreeIndex];
 
     io.emit('spinWheel', {
         randomDegree: randomDegree,
-        letter: letter
+        letter: letter,
+        allVotes: allVotes
     });
 
     console.log('selected: ', letter);

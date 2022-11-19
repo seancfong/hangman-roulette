@@ -61,6 +61,10 @@ h3 {
     right: -1%;
 }
 
+.hidden {
+    display: none;
+}
+
 @media (max-width: 300px) {
     #vote-chart-container {
         padding: 0;

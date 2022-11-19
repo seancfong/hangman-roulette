@@ -17,24 +17,83 @@ var chartData = {
             label: 'Dataset 1',
             data: [],
             backgroundColor: [],
+            cutout: '80%'
         }
-    ]
+    ],
+    
 };
 
+const emptyPlugin = {
+    id: 'emptyDoughnut',
+    afterDraw(chart, args, options) {
+        const {datasets} = chart.data;
+        const {color, width, radiusDecrease} = options;
+        let hasData = false;
+    
+        for (let i = 0; i < datasets.length; i += 1) {
+            const dataset = datasets[i];
+            hasData |= dataset.data.length > 0;
+        }
+    
+        if (!hasData) {
+            const {chartArea: {left, top, right, bottom}, ctx} = chart;
+            const centerX = (left + right) / 2;
+            const centerY = (top + bottom) / 2;
+            const r = Math.min(right - left, bottom - top) / 2;
+    
+            ctx.beginPath();
+            ctx.lineWidth = width || 2;
+            ctx.strokeStyle = color || 'rgba(255, 128, 0, 0.5)';
+            ctx.arc(centerX, centerY, (r - radiusDecrease || 0), 0, 2 * Math.PI);
+            ctx.stroke();
+        } 
+    }
+};
+
+const counterPlugin = {
+    id: 'counter',
+    beforeDraw(chart, args, options) {
+        const {ctx, chartArea: {
+            top, right, bottom, left, width, height
+        }} = chart;
+    
+        ctx.save();
+        
+        ctx.font = options.fontSize + 'px ' + options.fontFamily;
+        ctx.textAlign = 'center';
+        ctx.fillStyle = options.fontColor;
+        ctx.fillText(options.chartText, width / 2, top + (height / 2) + (options.fontSize * 0.34));
+    }
+}
+
 const chart = new Chart(ctx, {
-    type: 'pie',
+    type: 'doughnut',
     data: chartData,
     options: {
         plugins: {
+            emptyDoughnut: { 
+                color: 'rgba(0, 90, 255, 0.1)',
+                width: 30,
+                radiusDecrease: 20
+            },
+            counter: {
+                fontColor: '#777',
+                fontSize: 60,
+                fontFamily: 'sans-serif',
+                chartText: '?'
+            },
             tooltip: false,
             legend: {
-                display: true
+                display: false
             }
         },
         responsive: true,
-        animation: { duration: 0 }
+        animation: {
+            duration: 800
+        }
         
-    }
+    }, 
+    plugins: [emptyPlugin, counterPlugin]
 });
 
 // Connect to the server
@@ -135,24 +194,34 @@ socket.on('update', (gameData) => {
 socket.on('spinWheel', (data) => {
     let randomDegree = data.randomDegree;
     let letter = data.letter;
-    let dTheta = 101;
+    let allVotes = data.allVotes;
+    let dTheta = 30;
 
-    setTimeout(() => {}, 3000);
+    let degreeIndex;
+    let realDegree;
+
+    chart.options.animation.duration = 0;
 
     let rotationInterval = window.setInterval(() => {
         chart.options.rotation = chart.options.rotation + dTheta;
         chart.update();
+
+
+        realDegree = (-1 * chart.options.rotation) + 360;
+        degreeIndex = Math.floor((((realDegree + 90) % 360) / 360) * allVotes.length);
+        chart.options.plugins.counter.chartText = allVotes[degreeIndex];
+
         // reset degree if over 360
         if (chart.options.rotation >= 360) {
             if (dTheta > 1) {
-                dTheta -= 5;
+                dTheta -= 1;
             }
-
             chart.options.rotation = 0;
         } else if (dTheta == 1 && chart.options.rotation == (randomDegree + 90) % 360) {
             clearInterval(rotationInterval);
             console.log('done spinning');
-            setTimeout(revealLetter, 3000, letter);
+            chart.options.animation.duration = 800;
+            setTimeout(revealLetter, 2000, letter);
         }
     }, 10);
 });
@@ -173,10 +242,8 @@ const revealLetter = (letter) => {
     ds.data = [];
     chart.data.labels = [];
 
-    console.log('all data', chart.data);
 
     chart.update();
-
     socket.emit('request-update');
 
     
