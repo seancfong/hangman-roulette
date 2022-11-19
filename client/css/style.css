@@ -12,6 +12,7 @@ body {
 }
 
 #vote-chart {
+    position: relative;
     max-height: inherit;
     width: inherit;
 }
@@ -53,6 +54,13 @@ h3 {
     font-size: 20px;
 }
 
+#pointer-arrow {
+    position: absolute;
+    width: 2em;
+    top: 45%;
+    right: -1%;
+}
+
 @media (max-width: 300px) {
     #vote-chart-container {
         padding: 0;
@@ -66,7 +74,13 @@ h3 {
 
     p {
         font-size: 16px;
-        border: 1px solid #eee;
+    }
+
+    #pointer-arrow {
+        position: absolute;
+        width: 1.5em;
+        top: 45%;
+        right: 3%;
     }
 }
 

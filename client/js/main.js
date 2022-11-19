@@ -7,6 +7,8 @@ const wordBox = document.getElementById('hangman-word-content');
 
 // Create chart
 const ctx = document.getElementById('vote-chart').getContext('2d');
+const drawingCanvas = document.getElementById('hangman-display');
+const ctxDraw = drawingCanvas.getContext('2d');
 
 const chartData = {
     labels: [],
@@ -26,17 +28,17 @@ const chart = new Chart(ctx, {
         plugins: {
             tooltip: false,
             legend: {
-                display: false
+                display: true
             }
         },
         responsive: true,
+        animation: { duration: 0 }
         
     }
 });
 
 // Connect to the server
 const socket = io();
-
 
 // Whenever a vote updates the chart
 socket.on('update', (gameData) => {
@@ -54,8 +56,8 @@ socket.on('update', (gameData) => {
         for (let wordArray of wordStates) {
             for (let letter of wordArray) {
                 // display current letter data
-                let d = document.createElement('div');
-                let l = document.createElement('p');
+                var d = document.createElement('div');
+                var l = document.createElement('p');
                 if (letter == ' '){ 
                     l.innerHTML = '_';
                 } else {
@@ -66,8 +68,29 @@ socket.on('update', (gameData) => {
                 wordBox.appendChild(d);
             }
             // insert line break
-            let br = document.createElement('br');
+            var br = document.createElement('br');
             wordBox.appendChild(br);
+        }
+    } else {
+        let index = 0;
+        for (let i = 0; i < wordStates.length; i++) {
+            for (let j = 0; j < wordStates[i].length; j++) {
+                let d = wordBox.children[index];
+                let p = d.children[0];
+                console.log(d, p)
+                if (wordBox.children[index].tagName === 'BR') {
+                    index += 2;
+                    continue;
+                }
+                console.log(index, wordStates[i][j]);
+
+                if (wordStates[i][j] == ' '){ 
+                    p.innerHTML = '_';
+                } else {
+                    p.innerHTML = wordStates[i][j];
+                }
+                index++;
+            }
         }
         
     }
@@ -102,9 +125,54 @@ socket.on('update', (gameData) => {
     }
 
     chart.update();
+    console.log(data.labels);
+    console.log(ds.data);
+
+    socket.emit('updateData', {
+        labels: data.labels,
+        data: ds.data
+    });
+});
+
+socket.on('spinWheel', (data) => {
+    let randomDegree = data.randomDegree;
+    let letter = data.letter;
+    let dTheta = 101;
+
+    setTimeout(() => {}, 3000);
+
+    let rotationInterval = window.setInterval(() => {
+        chart.options.rotation = chart.options.rotation + dTheta;
+        chart.update();
+        // reset degree if over 360
+        if (chart.options.rotation >= 360) {
+            if (dTheta > 1) {
+                dTheta -= 5;
+            }
+
+            chart.options.rotation = 0;
+        } else if (dTheta == 1 && chart.options.rotation == (randomDegree + 90) % 360) {
+            clearInterval(rotationInterval);
+            console.log('done spinning');
+            revealLetter(letter);
+        }
+    }, 10);
 });
 
 
+// Hangman Canvas
+const revealLetter = (letter) => {
+    socket.emit('request-update');
+
+    console.log(letter);
+
+    let canvasWidth = drawingCanvas.width;
+    let canvasHeight = drawingCanvas.height;
+
+    
+}
+
+// Input forms
 const form = document.getElementById('vote-form');
 form.addEventListener('submit', (e) => {
     // Prevent from reloading

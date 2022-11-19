@@ -10,7 +10,7 @@ const server = http.createServer(app);
 const io = socketio(server);
 
 const DEBUG = true;
-const TIMER_LENGTH = 5000;
+const TIMER_LENGTH = 15000;
 
 var curWords;
 var voteOptions;
@@ -18,6 +18,8 @@ var totalVotes;
 var openVoting;
 var activeTimer;
 var wordStates;
+
+var chartData;
 
 // Have app serve front-end static files
 app.use(express.static(path.join(__dirname, 'client')));
@@ -72,17 +74,42 @@ const selectVote = () => {
 
     let allVotes = [];
 
+    console.log(chartData)
+
     // Select a random letter
-    for (let [key, option] of Object.entries(voteOptions)) {
-        if (option.votes > 0) {
-            for (let i = 0; i < option.votes; i++){
-                allVotes.push(option.label);
-                console.log(option.label);
-            }   
+    for (let pos = 0; pos < chartData.labels.length; pos++) {
+        console.log(chartData.labels[pos], chartData.data[pos]);
+        for (let j = 0; j < chartData.data[pos]; j++){
+            allVotes.push(chartData.labels[pos]);
+            console.log(chartData.labels[pos]);
+        }   
+    }
+    console.log(allVotes);
+
+    let randomDegree = Math.floor(Math.random() * (355 - 0 + 1) + 0);
+
+    let realDegree = (-1 * randomDegree) + 360;
+    let degreeIndex = Math.floor((realDegree / 360) * allVotes.length);
+
+    letter = allVotes[degreeIndex];
+
+    io.emit('spinWheel', {
+        randomDegree: randomDegree,
+        letter: letter
+    });
+
+    console.log('selected: ', letter);
+
+    for (let i = 0; i < curWords.length; i++) {
+        for (let j = 0; j < curWords[i].length; j++) {
+            if (letter == curWords[i][j]) {
+                wordStates[i][j] = letter;
+            }
         }
     }
 
-    
+    console.log(wordStates);
+    console.log(curWords);
     
 }
 
@@ -103,12 +130,22 @@ io.on('connection', socket => {
                 checkMajorityTimer();
             }
             
-
             // Update the voteOptions on other devices
             io.emit('update', generateUpdateObject());
         }
     });
+
+    socket.on('updateData', (data) => {
+        chartData = data;
+    });
+
+    socket.on('request-update', (data) => {
+        console.log('request update');
+        io.emit('update', generateUpdateObject());
+    });
+
 });
+
 
 
 // Game-handling functions
@@ -131,6 +168,9 @@ const resetGameLoop = () => {
 
     // reset timer
     activeTimer = false;
+
+    // reset data
+    chartData = {};
 
     if (DEBUG) {
         console.log(voteOptions);
