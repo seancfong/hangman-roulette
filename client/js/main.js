@@ -73,8 +73,8 @@ const chart = new Chart(ctx, {
         plugins: {
             emptyDoughnut: { 
                 color: 'rgba(0, 90, 255, 0.1)',
-                width: 30,
-                radiusDecrease: 20
+                width: 25,
+                radiusDecrease: 15
             },
             counter: {
                 fontColor: '#777',
@@ -136,18 +136,17 @@ socket.on('update', (gameData) => {
             for (let j = 0; j < wordStates[i].length; j++) {
                 let d = wordBox.children[index];
                 let p = d.children[0];
-                if (wordBox.children[index].tagName === 'BR') {
-                    index += 2;
-                    continue;
-                }
-
-                if (wordStates[i][j] == ' '){ 
-                    p.innerHTML = '_';
-                } else {
-                    p.innerHTML = wordStates[i][j];
+                // console.log(p, wordStates[i][j], index, i, j);
+                if (p) {
+                    if (wordStates[i][j] == ' '){ 
+                        p.innerHTML = '_';
+                    } else {
+                        p.innerHTML = wordStates[i][j];
+                    }
                 }
                 index++;
             }
+            index++;
         }
         
     }
