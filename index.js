@@ -13,19 +13,16 @@ const io = socketio(server);
 const DEBUG = true;
 const TIMER_LENGTH = 3000;
 
-var curWords;
-var voteOptions;
-var totalVotes;
-var openVoting;
-var activeTimer;
-var wordStates;
-
-var chartData;
-
 var allRooms = {};
+var socketIDRooms = {};
+
+const roomByID = (id) => {
+    return allRooms[socketIDRooms[id]].roomName;
+}
 
 const addNewRoom = (roomName) => {
     allRooms[roomName] = {
+        roomName: roomName,
         users: [],
         curWords: [],
         wordStates: [],
@@ -37,16 +34,13 @@ const addNewRoom = (roomName) => {
 }
 
 const newUser = (playerName, id, room) => {
+    socketIDRooms[id] = room;
     return {
         playerName: playerName,
         id: id,
         roomName: room
     }
 } 
-
-if (DEBUG) {
-    addNewRoom('dev_test');
-}
 
 
 // Have app serve front-end static files
@@ -65,8 +59,14 @@ app.get('/', (req, res) => {
 
 // Route for joining games
 app.post('/joingame', (req, res) => {
+    let roomName = req.body.roomName;
+
     if (!(req.body.roomName in allRooms)) {
+        // Add new room
         addNewRoom(req.body.roomName);
+
+        // Reset as new game
+        resetGame(roomName);
     }
     console.log(allRooms);
     res.redirect(`/join/${req.body.roomName}/`);
@@ -102,11 +102,11 @@ const getRandomColor = () => {
 }
 
 // Voting options
-const resetVoteOptions = () => {
-    voteOptions = {};
+const resetVoteOptions = (roomName) => {
+    allRooms[roomName].voteOptions = {};
     for (var i = 0; i < 26; i++) {
         let alphaString = `${alphabet[i]}`;
-        voteOptions[alphaString] = {
+        allRooms[roomName].voteOptions[alphaString] = {
             votes: 0,
             label: alphaString,
             bgColor: getRandomColor()
@@ -114,51 +114,54 @@ const resetVoteOptions = () => {
     }
 };
 
-const checkMajorityTimer = () => {
+const checkMajorityTimer = (roomName) => {
+    let totalVotes = allRooms[roomName].totalVotes;
+
     console.log(`Open voting: Checking timer on [${totalVotes}] votes`);
-    
+
     // set timer if a majority exists
     if (totalVotes >= 3) {
         console.log('Countdown timer now!');
-        activeTimer = true;
+        allRooms[roomName].activeTimer = true;
 
-        setTimeout(selectVote, TIMER_LENGTH);
+        setTimeout(selectVote, TIMER_LENGTH, roomName);
     }
 };
 
-const generateUpdateObject = () => {
+const generateUpdateObject = (roomName) => {
+    let room = allRooms[roomName];
     return {
-        voteOptions: voteOptions,
-        totalVotes: totalVotes,
-        wordStates: wordStates
+        voteOptions: room.voteOptions,
+        totalVotes: room.totalVotes,
+        wordStates: room.wordStates
     }
 };
 
-const selectVote = () => {
-    console.log('Locking votes and evaluating');
+const selectVote = (roomName) => {
+    console.log(`[${roomName}] Locking votes and evaluating`);
 
     let allVotes = [];
 
-    console.log(chartData)
+    let chartData = allRooms[roomName].chartData;
 
     // Select a random letter
     for (let pos = 0; pos < chartData.labels.length; pos++) {
-        console.log(chartData.labels[pos], chartData.data[pos]);
+        // console.log(chartData.labels[pos], chartData.data[pos]);
         for (let j = 0; j < chartData.data[pos]; j++){
             allVotes.push(chartData.labels[pos]);
             console.log(chartData.labels[pos]);
         }   
     }
-    console.log(allVotes);
+    console.log(`[${roomName}] allVotes `, allVotes);
 
     let randomDegree = Math.floor(Math.random() * (358) + 1);  // between 1 and 359
 
     let realDegree = (-1 * randomDegree) + 360;  // between 359 and 1
     let degreeIndex = Math.floor((realDegree / 360) * allVotes.length);
 
-    letter = allVotes[degreeIndex];
+    let letter = allVotes[degreeIndex];
 
-    io.emit('spinWheel', {
+    io.to(roomName).emit('spinWheel', {
         randomDegree: randomDegree,
         letter: letter,
         allVotes: allVotes
@@ -166,16 +169,15 @@ const selectVote = () => {
 
     console.log('selected: ', letter);
 
+    let curWords = allRooms[roomName].curWords;
+
     for (let i = 0; i < curWords.length; i++) {
         for (let j = 0; j < curWords[i].length; j++) {
             if (letter == curWords[i][j]) {
-                wordStates[i][j] = letter;
+                allRooms[roomName].wordStates[i][j] = letter;
             }
         }
     }
-
-    console.log(wordStates);
-    console.log(curWords);
     
 }
 
@@ -191,38 +193,43 @@ io.on('connection', socket => {
         allRooms[user.roomName].users.push(user);
 
         socket.join(clientData.roomName);
-        console.log(allRooms);
-    });
 
-    io.emit('update', generateUpdateObject());
+        console.log(`Updating ${roomByID(socket.id)}`);
+        io.to(roomByID(socket.id)).emit('update', generateUpdateObject(roomByID(socket.id)));
+    });
 
     socket.on('vote', (letter) => {
         console.log(letter);
+
+        var voteOptions = allRooms[roomByID(socket.id)].voteOptions;
+        var openVoting = allRooms[roomByID(socket.id)].openVoting;
+        var activeTimer = allRooms[roomByID(socket.id)].activeTimer;
+
         if (voteOptions[letter] && openVoting) {
             voteOptions[letter].votes += 1;
-            totalVotes++;
+            allRooms[roomByID(socket.id)].totalVotes++;
             if (!activeTimer) {
-                checkMajorityTimer();
+                checkMajorityTimer(roomByID(socket.id));
             }
             
             // Update the voteOptions on other devices
-            io.emit('update', generateUpdateObject());
+            io.to(roomByID(socket.id)).emit('update', generateUpdateObject(roomByID(socket.id)));
         }
     });
 
     socket.on('updateData', (data) => {
-        chartData = data;
+        allRooms[roomByID(socket.id)].chartData = data;
     });
 
     socket.on('request-update', (data) => {
         console.log('request update');
-        io.emit('update', generateUpdateObject());
+        io.to(roomByID(socket.id)).emit('update', generateUpdateObject(roomByID(socket.id)));
     });
 
     socket.on('new-round', (data) => {
         console.log('new round');
-        resetGameLoop();
-        io.emit('update', generateUpdateObject());
+        resetGameLoop(roomByID(socket.id));
+        io.to(roomByID(socket.id)).emit('update', generateUpdateObject(roomByID(socket.id)));
     });
 
 });
@@ -230,7 +237,7 @@ io.on('connection', socket => {
 
 
 // Game-handling functions
-const generateWords = () => {
+const generateWords = (roomName) => {
     let genWords = randomWords({exactly:3, wordsPerString:1, formatter: (word) => word.toUpperCase()});
     for (let word of genWords) {
         let wordArray = [];
@@ -239,45 +246,46 @@ const generateWords = () => {
             wordArray.push(letter);
             wordStateArray.push(' ');
         }
-        curWords.push(wordArray);
-        wordStates.push(wordStateArray);
+        allRooms[roomName].curWords.push(wordArray);
+        allRooms[roomName].wordStates.push(wordStateArray);
     }
 }
 
-const resetGameLoop = () => {
-    console.log('New game loop');
+const resetGameLoop = (roomName) => {
+    console.log(`Reset game loop for ${roomName}`);
 
     // reset timer
-    activeTimer = false;
+    allRooms[roomName].activeTimer = false;
 
     // reset data
-    chartData = {};
+    allRooms[roomName].chartData = {};
 
     // reset all votes
-    totalVotes = 0;
-    resetVoteOptions();
-    openVoting = true;
+    allRooms[roomName].totalVotes = 0;
+    resetVoteOptions(roomName);
+    allRooms[roomName].openVoting = true;
 
     if (DEBUG) {
-        console.log(voteOptions);
-        console.log(curWords);
-        console.log(wordStates);
+        console.log(allRooms[roomName].voteOptions);
+        console.log(allRooms[roomName].curWords, allRooms[roomName].wordStates);
     }
 };
 
-const resetGame = () => {
-    
+const resetGame = (roomName) => {
+    // Reset game data
+    allRooms[roomName].curWords = [];
+    allRooms[roomName].wordStates = [];
 
-    // generate new words
-    curWords = [];
-    wordStates = [];
-    generateWords();
-
-    resetGameLoop();
+    // Generate new words
+    generateWords(roomName);
+    resetGameLoop(roomName);
 
 };
 
-resetGame();
+if (DEBUG) {
+    addNewRoom('dev_test');
+    resetGame('dev_test');
+}
 
 const PORT = process.env.PORT || 3000;
 
