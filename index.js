@@ -3,6 +3,7 @@ const express= require('express');
 const socketio = require('socket.io');
 const http = require('http');
 const randomWords = require('random-words');
+const bodyParser = require('body-parser');
 
 // Iniitalize backend server
 const app = express();
@@ -21,8 +22,72 @@ var wordStates;
 
 var chartData;
 
+var allRooms = {};
+
+const addNewRoom = (roomName) => {
+    allRooms[roomName] = {
+        users: [],
+        curWords: [],
+        wordStates: [],
+        activeTimer: false,
+        chartData: {},
+        totalVotes: 0,
+        openVoting: true,
+    };
+}
+
+const newUser = (playerName, id, room) => {
+    return {
+        playerName: playerName,
+        id: id,
+        roomName: room
+    }
+} 
+
+if (DEBUG) {
+    addNewRoom('dev_test');
+}
+
+
 // Have app serve front-end static files
-app.use(express.static(path.join(__dirname, 'client')));
+app.use(express.static(path.join(__dirname, '/client')));
+
+// Mount bodyParser to collect post data from index.html
+app.use(bodyParser.urlencoded({extended: true}));
+
+// Route for home page
+app.get('/', (req, res) => {
+    res.sendFile(__dirname +'/client/index.html');
+});
+
+
+
+
+// Route for joining games
+app.post('/joingame', (req, res) => {
+    if (!(req.body.roomName in allRooms)) {
+        addNewRoom(req.body.roomName);
+    }
+    console.log(allRooms);
+    res.redirect(`/join/${req.body.roomName}/`);
+});
+
+app.get('/join/:roomName', function(req, res){
+    // Check if attempt to join room not already exists
+    if (!(req.params.roomName in allRooms)) {
+        res.send('Doesn\'t exist!');
+    } else {
+        res.sendFile(__dirname + '/client/game.html');
+    }
+    
+});
+
+// Serve static files per room
+app.get('/join/:roomName/*', (req, res) => {
+    var roomName = req.params.roomName;
+    var path = req.params[0] ? req.params[0] : 'index.html';
+    res.sendFile(path, {root: './client'});
+});
 
 // Alphabet array 
 const alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
@@ -119,6 +184,15 @@ io.on('connection', socket => {
     if (DEBUG) {
         console.log('Client connected to server');
     }
+
+    socket.on('joinRoom', (clientData) => {
+        console.log(`${clientData.playerName} joined room ${clientData.roomName}`);
+        const user = newUser(clientData.playerName, socket.id, clientData.roomName);
+        allRooms[user.roomName].users.push(user);
+
+        socket.join(clientData.roomName);
+        console.log(allRooms);
+    });
 
     io.emit('update', generateUpdateObject());
 

@@ -99,6 +99,13 @@ const chart = new Chart(ctx, {
 // Connect to the server
 const socket = io();
 
+const roomName = window.location.pathname.split("/").at(-2);
+console.log( roomName );
+
+var playerName = 'fluffy';
+
+socket.emit('joinRoom', {playerName, roomName});
+
 // Whenever a vote updates the chart
 socket.on('update', (gameData) => {
     var alphaKeys = Object.entries(gameData.voteOptions);
@@ -222,7 +229,7 @@ socket.on('spinWheel', (data) => {
             chart.options.animation.duration = 800;
             setTimeout(revealLetter, 2000, letter);
         }
-    }, 10);
+    }, 20);
 });
 
 
