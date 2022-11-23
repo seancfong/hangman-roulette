@@ -218,19 +218,31 @@ socket.on('update', (gameData) => {
 
 socket.on('spinWheel', (data) => {
     let randomDegree = data.randomDegree;
-    let letter = data.letter;
     let allVotes = data.allVotes;
-    let dTheta = 30;
+    let dTheta = 20;
+    let aTheta = -1;
 
     let degreeIndex;
     let realDegree;
 
+    let rotationInterval;
+
+    let hasFinished = false;
+
     chart.options.animation.duration = 0;
 
-    let rotationInterval = window.setInterval(() => {
+    // set hard timeout in case client exits tab 
+    setTimeout(() => {
+        if (!hasFinished) {
+            console.log('cleared interval');
+            clearInterval(rotationInterval);
+        }
+        
+    }, 30000);
+
+    rotationInterval = window.setInterval(() => {
         chart.options.rotation = chart.options.rotation + dTheta;
         chart.update();
-
 
         realDegree = (-1 * chart.options.rotation) + 360;
         degreeIndex = Math.floor((((realDegree + 90) % 360) / 360) * allVotes.length);
@@ -239,42 +251,33 @@ socket.on('spinWheel', (data) => {
         // reset degree if over 360
         if (chart.options.rotation >= 360) {
             if (dTheta > 1) {
-                dTheta -= 1;
-            }
+                dTheta += aTheta;
+            } 
             chart.options.rotation = 0;
         } else if (dTheta == 1 && chart.options.rotation == (randomDegree + 90) % 360) {
             clearInterval(rotationInterval);
+            hasFinished = true;
             console.log('done spinning');
-            chart.options.animation.duration = 800;
-            setTimeout(revealLetter, 2000, letter);
         }
-    }, 20);
+    }, 15);
 });
 
 
 // Hangman Canvas
-const revealLetter = (letter) => {
-    console.log(letter);
-
-    socket.emit('new-round');
+socket.on('reveal-letter', () => {
+    // reset animation
+    chart.options.animation.duration = 800;
 
     // reset client chart data
     let ds = chart.data.datasets[0];
 
-    console.log('ds data', ds.data);
-    console.log('data labels', chart.data.labels);
-
     ds.data = [];
     chart.data.labels = [];
 
-
     chart.update();
     socket.emit('request-update');
-
     
-
-    
-}
+});
 
 // Input forms
 const form = document.getElementById('vote-form');

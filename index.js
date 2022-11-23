@@ -170,13 +170,22 @@ const selectVote = (roomName) => {
 
     let curWords = allRooms[roomName].curWords;
 
-    for (let i = 0; i < curWords.length; i++) {
-        for (let j = 0; j < curWords[i].length; j++) {
-            if (letter == curWords[i][j]) {
-                allRooms[roomName].wordStates[i][j] = letter;
+    // create timer for wheel spin, in case clients reconnect
+    setTimeout(() => {
+        for (let i = 0; i < curWords.length; i++) {
+            for (let j = 0; j < curWords[i].length; j++) {
+                if (letter == curWords[i][j]) {
+                    allRooms[roomName].wordStates[i][j] = letter;
+                }
             }
         }
-    }
+        io.to(roomName).emit('update', generateUpdateObject(roomName));
+        io.to(roomName).emit('reveal-letter');
+
+        resetGameLoop(roomName);
+    }, 17000);
+
+    
     
 }
 
@@ -224,12 +233,6 @@ io.on('connection', socket => {
 
     socket.on('request-update', (data) => {
         console.log('request update');
-        io.to(roomByID(socket.id)).emit('update', generateUpdateObject(roomByID(socket.id)));
-    });
-
-    socket.on('new-round', (data) => {
-        console.log('new round');
-        resetGameLoop(roomByID(socket.id));
         io.to(roomByID(socket.id)).emit('update', generateUpdateObject(roomByID(socket.id)));
     });
 
