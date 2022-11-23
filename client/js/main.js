@@ -102,11 +102,30 @@ const socket = io();
 const roomName = window.location.pathname.split("/").at(-2);
 console.log( roomName );
 
-var playerName = 'fluffy';
+var playerName;
 
-socket.emit('joinRoom', {playerName, roomName});
+// Sweet alert to prompt the user
+swal("Enter your name:", {
+    closeOnEsc: false,
+    closeOnClickOutside: false,
+    content: "input",
+    button: {
+        text: "Join Game",
+        closeModal: true,
+    },
+})
+.then((value) => {
+    playerName = value;
+    if (!playerName) {
+        playerName = 'Player';
+    }
+    swal(`Welcome, ${playerName}!`, {
+        icon: "success"
+    });
+    socket.emit('joinRoom', {playerName, roomName});
+});
 
-// Whenever a vote updates the chart
+// Whenever a vote udates the chart
 socket.on('update', (gameData) => {
     var alphaKeys = Object.entries(gameData.voteOptions);
     var totalVotes = gameData.totalVotes;

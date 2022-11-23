@@ -68,7 +68,6 @@ app.post('/joingame', (req, res) => {
         // Reset as new game
         resetGame(roomName);
     }
-    console.log(allRooms);
     res.redirect(`/join/${req.body.roomName}/`);
 });
 
@@ -194,8 +193,10 @@ io.on('connection', socket => {
 
         socket.join(clientData.roomName);
 
-        console.log(`Updating ${roomByID(socket.id)}`);
+        console.log(`Updating room ${roomByID(socket.id)}`);
         io.to(roomByID(socket.id)).emit('update', generateUpdateObject(roomByID(socket.id)));
+
+        console.log(allRooms[user.roomName].users);
     });
 
     socket.on('vote', (letter) => {
@@ -233,7 +234,6 @@ io.on('connection', socket => {
     });
 
 });
-
 
 
 // Game-handling functions
