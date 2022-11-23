@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/cnfgsean/terrible-hangman#readme",
   "dependencies": {
+    "body-parser": "^1.20.1",
     "express": "^4.18.2",
     "random-words": "^1.2.0",
     "socket.io": "^4.5.3"
