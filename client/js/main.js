@@ -4,11 +4,15 @@ console.log('Nothing useful is going to be here anyways, but feel free to just s
 // DOM objects
 const votingCountHeader = document.getElementById('voting-count-header');
 const wordBox = document.getElementById('hangman-word-content');
+const playerBox = document.getElementById('player-list-ul');
 
 // Create chart
 const ctx = document.getElementById('vote-chart').getContext('2d');
 const drawingCanvas = document.getElementById('hangman-display');
 const ctxDraw = drawingCanvas.getContext('2d');
+
+// Rotation interval for animation
+let rotationInterval;
 
 var chartData = {
     labels: [],
@@ -125,18 +129,7 @@ swal("Enter your name:", {
     socket.emit('joinRoom', {playerName, roomName});
 });
 
-// Whenever a vote udates the chart
-socket.on('update', (gameData) => {
-    var alphaKeys = Object.entries(gameData.voteOptions);
-    var totalVotes = gameData.totalVotes;
-    var wordStates = gameData.wordStates;
-
-    console.log(wordStates);
-    console.log(totalVotes);
-
-    // Update current word statuses
-    // console.log(wordBox.children);
-
+const updateWordStatus = (wordStates) => {
     if (wordBox.children.length == 0) {
         for (let wordArray of wordStates) {
             for (let letter of wordArray) {
@@ -173,10 +166,49 @@ socket.on('update', (gameData) => {
                 index++;
             }
             index++;
-        }
-        
+        } 
     }
-    
+};
+
+const removeAllChildNodes = (parent) => {
+    while (parent.firstChild) {
+        parent.removeChild(parent.firstChild);
+    }
+}
+
+// Whenever the playerlist needs to update
+socket.on('update-playerlist', (users) => {
+    console.log('playerBox', playerBox.children, users);
+    removeAllChildNodes(playerBox);
+
+    for (let userInfo of users) {
+        var li = document.createElement('li');
+        var d = document.createElement('div');
+        var playerName = document.createElement('p');
+
+        playerName.innerHTML = userInfo.playerName;
+        if (userInfo.id === socket.id) {
+            playerName.classList.add('bold');
+        }
+
+        d.appendChild(playerName);
+        li.appendChild(d);
+        playerBox.appendChild(li);
+    }
+});
+
+// Whenever a vote udates the chart
+socket.on('update', (gameData) => {
+    var alphaKeys = Object.entries(gameData.voteOptions);
+    var totalVotes = gameData.totalVotes;
+    var wordStates = gameData.wordStates;
+    var users = gameData.users;
+
+    console.log(wordStates);
+    console.log(totalVotes);
+
+    // Update current word statuses
+    updateWordStatus(wordStates);
 
     // Update votes
     votingCountHeader.innerHTML = `Open Voting Total: ${totalVotes}`;
@@ -225,8 +257,6 @@ socket.on('spinWheel', (data) => {
     let degreeIndex;
     let realDegree;
 
-    let rotationInterval;
-
     let hasFinished = false;
 
     chart.options.animation.duration = 0;
@@ -265,6 +295,9 @@ socket.on('spinWheel', (data) => {
 
 // Hangman Canvas
 socket.on('reveal-letter', () => {
+    // clear spinning interval
+    clearInterval(rotationInterval);
+
     // reset animation
     chart.options.animation.duration = 800;
 

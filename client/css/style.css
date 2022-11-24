@@ -17,8 +17,19 @@ body {
     width: inherit;
 }
 
+#vote-chart-container {
+    display: flex;
+    padding-left: 0;
+    padding-right: 0;
+    position: relative;
+}
+
 #vote-text-input{
     max-width: 30%;
+}
+
+#hangman-container {
+    display: flex;
 }
 
 #hangman-display {
@@ -42,11 +53,10 @@ body {
     padding: 0 0.5rem;
 }
 
-#page-border {
-    width: 99vw;
-    height: 99vh;
-    position: relative;
-    margin: 0.5vh auto 0;
+#player-list {
+    margin-top: 0.3rem;
+    height: 30vh;
+    overflow-y: scroll;
 }
 
 p {
@@ -65,15 +75,20 @@ h3 {
     position: absolute;
     width: 2em;
     top: 45%;
-    right: -1%;
+    right: -6%;
 }
 
 .hidden {
     display: none;
 }
 
+.bold {
+    font-weight: bold;
+}
+
 @media (max-width: 400px) {
     #vote-chart-container {
+        display: flex;
         position: relative;
         padding: 10px;
     }
@@ -87,16 +102,20 @@ h3 {
     p {
         font-size: 12px;
     }
+
+    #player-list {
+        margin-top: 0.3rem;
+        height: 15vh;
+        overflow-y: scroll;
+    }
 }
 
 @media (min-width: 400px) and (max-width: 576px) {
     #vote-chart-container {
+        display: flex;
         position: relative;
         padding: 10px;
         width: 60%;
-    }
-
-    #vote-chart {
         float: left;
     }
 
@@ -107,12 +126,21 @@ h3 {
     #pointer-arrow {
         position: absolute;
         width: 1.5em;
-        top: 580%;
+        top: 49%;
+        right: -2%;
+    }
+
+    #player-list {
+        margin-top: 0.3rem;
+        height: 15vh;
+        overflow-y: scroll;
     }
 }
 
 @media (min-width: 576px) and (max-width: 768px) {
     #vote-chart-container {
+        display: flex;
+        position: relative;
         padding-left: 0;
         padding-right: 0;
     }
