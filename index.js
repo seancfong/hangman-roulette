@@ -17,7 +17,10 @@ var allRooms = {};
 var socketIDRooms = {};
 
 const roomByID = (id) => {
-    return allRooms[socketIDRooms[id]].roomName;
+    if (allRooms[socketIDRooms[id]]) {
+        return allRooms[socketIDRooms[id]].roomName;
+    }
+    return null;
 }
 
 const addNewRoom = (roomName) => {
@@ -91,15 +94,6 @@ app.get('/join/:roomName/*', (req, res) => {
 // Alphabet array 
 const alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
 
-const getRandomColor = () => {
-    var letters = '0123456789ABCDEF';
-    var color = '#';
-    for (var i = 0; i < 6; i++) {
-      color += letters[Math.floor(Math.random() * 16)];
-    }
-    return color;
-}
-
 // Voting options
 const resetVoteOptions = (roomName) => {
     allRooms[roomName].voteOptions = {};
@@ -108,7 +102,6 @@ const resetVoteOptions = (roomName) => {
         allRooms[roomName].voteOptions[alphaString] = {
             votes: 0,
             label: alphaString,
-            bgColor: getRandomColor()
         }
     }
 };
@@ -127,11 +120,11 @@ const checkMajorityTimer = (roomName) => {
     }
 };
 
-const emitToRoom = (socket, event, hasObject = false, object = null) => {
+const emitToRoom = (socket, event, hasObject = false, toSend = null) => {
     if (hasObject) {
         io.to(roomByID(socket.id)).emit(event, generateUpdateObject(roomByID(socket.id)));
-    } else if (object) {
-        io.to(roomByID(socket.id)).emit(event, object);
+    } else if (toSend) {
+        io.to(roomByID(socket.id)).emit(event, toSend);
     } else {
         io.to(roomByID(socket.id)).emit(event);
     }
@@ -192,7 +185,7 @@ const selectVote = (roomName) => {
             }
         }
         io.to(roomName).emit('update', generateUpdateObject(roomName));
-        io.to(roomName).emit('reveal-letter');
+        io.to(roomName).emit('reveal-letter', letter);
 
         resetGameLoop(roomName);
     }, 20000);
@@ -250,7 +243,11 @@ io.on('connection', socket => {
 
     socket.on('disconnect', (reason) => {
         console.log('disconnect', socket.id);
-        let userArray = allRooms[roomByID(socket.id)].users;
+        let userArray = [];
+
+        if (socketIDRooms[socket.id]) {
+            userArray = allRooms[roomByID(socket.id)].users;
+        }
 
         // Remove user from user list
         for(let i = 0; i < userArray.length; i++){ 
@@ -261,7 +258,9 @@ io.on('connection', socket => {
         }
 
         console.log('updated player list: ', userArray);
-        emitToRoom(socket, 'update-playerlist', false, allRooms[roomByID(socket.id)].users);
+        if (allRooms[roomByID(socket.id)]) {
+            emitToRoom(socket, 'update-playerlist', false, userArray);
+        }
     })
 
 });

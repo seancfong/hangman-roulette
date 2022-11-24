@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="css/style.css">
     <title>Hangman Roulette</title>
 </head>
-<body>
+<body class="pt-1 pt-sm-3 pt-md-3 pt-lg-3">
     <div class="row m-0 mt-3  mt-sm-5 mt-md-5 mt-lg-5  mb-1 mb-sm-3 mb-md-3 mb-lg-3">
         <h1 align="center">Hangman Roulette</h1>
     </div>
@@ -20,7 +20,7 @@
     <div class="row m-0">
         <div class="vote-container col-10 offset-1  col-sm-5 offset-sm-1  col-md-5 offset-md-1  col-lg-3 offset-lg-3">
             <div class="border border-2 border-dark mb-2 px-10 pt-2 pb-1">
-                <h3 align="center" id="voting-count-header">Open Voting Total: 0</h3>
+                <h3 align="center" id="voting-count-header">Total Votes: 0</h3>
             </div>
 
             <div id="vote-chart-container">
@@ -32,7 +32,7 @@
             <div id="vote-input-section" class="mt-3" align="center">
                 <form id="vote-form" action="">
                     <input type="text" placeholder="ex: A" value="" id="vote-text-input" autofocus/>
-                    <input type="submit" value="Vote" id="button1" class="btn btn-primary btn-sm"/>
+                    <input type="submit" value="Vote" id="vote-button" class="btn btn-success btn-sm"/>
                 </form> 
             </div>
             
@@ -43,7 +43,7 @@
             </div>
             <div id="player-list" class="border border-2 border-dark">
                 <ul id="player-list-ul">
-                    
+
                 </ul>
             </div>
         </div>

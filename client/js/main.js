@@ -5,27 +5,50 @@ console.log('Nothing useful is going to be here anyways, but feel free to just s
 const votingCountHeader = document.getElementById('voting-count-header');
 const wordBox = document.getElementById('hangman-word-content');
 const playerBox = document.getElementById('player-list-ul');
+const voteButton = document.getElementById('vote-button');
 
 // Create chart
 const ctx = document.getElementById('vote-chart').getContext('2d');
 const drawingCanvas = document.getElementById('hangman-display');
 const ctxDraw = drawingCanvas.getContext('2d');
 
+const getRandomColor = () => {
+    var letters = '0123456789ABCDEF';
+    var color = '#';
+    for (var i = 0; i < 6; i++) {
+      color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
+}
+
 // Rotation interval for animation
 let rotationInterval;
 
 var chartData = {
-    labels: [],
+    labels: ['1', '2'],
     datasets: [
         {
-            label: 'Dataset 1',
-            data: [],
+            label: 'Vote Data',
+            data: [0, 0],
             backgroundColor: [],
-            cutout: '80%'
+            cutout: '70%'
+        },
+        {
+            label: 'Timer',
+            data: [100, 1],
+            backgroundColor: ['#000000', '#ffffff'],
+            radius: '90%',
+            cutout: '90%',
         }
     ],
     
 };
+
+const alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+
+for (let i = 0; i < 26; i++) {
+    chartData.datasets[0].backgroundColor.push(getRandomColor());
+}
 
 const emptyPlugin = {
     id: 'emptyDoughnut',
@@ -178,12 +201,12 @@ const removeAllChildNodes = (parent) => {
 
 // Whenever the playerlist needs to update
 socket.on('update-playerlist', (users) => {
-    console.log('playerBox', playerBox.children, users);
+    console.log('updating player list', playerBox.children, users);
     removeAllChildNodes(playerBox);
 
     for (let userInfo of users) {
         var li = document.createElement('li');
-        var d = document.createElement('div');
+        var d = document.createElement('div');  
         var playerName = document.createElement('p');
 
         playerName.innerHTML = userInfo.playerName;
@@ -211,7 +234,7 @@ socket.on('update', (gameData) => {
     updateWordStatus(wordStates);
 
     // Update votes
-    votingCountHeader.innerHTML = `Open Voting Total: ${totalVotes}`;
+    votingCountHeader.innerHTML = `Total Votes: ${totalVotes}`;
 
     // Update chart
     const data = chart.data;
@@ -232,7 +255,6 @@ socket.on('update', (gameData) => {
             } else {
                 // Add new label
                 data.labels.push(key);
-                ds.backgroundColor.push(letterData.bgColor);
                 ds.data.push(letterData.votes);
             }   
         }   
@@ -257,18 +279,7 @@ socket.on('spinWheel', (data) => {
     let degreeIndex;
     let realDegree;
 
-    let hasFinished = false;
-
     chart.options.animation.duration = 0;
-
-    // set hard timeout in case client exits tab 
-    setTimeout(() => {
-        if (!hasFinished) {
-            console.log('cleared interval');
-            clearInterval(rotationInterval);
-        }
-        
-    }, 30000);
 
     rotationInterval = window.setInterval(() => {
         chart.options.rotation = chart.options.rotation + dTheta;
@@ -294,7 +305,7 @@ socket.on('spinWheel', (data) => {
 
 
 // Hangman Canvas
-socket.on('reveal-letter', () => {
+socket.on('reveal-letter', (letter) => {
     // clear spinning interval
     clearInterval(rotationInterval);
 
@@ -304,12 +315,17 @@ socket.on('reveal-letter', () => {
     // reset client chart data
     let ds = chart.data.datasets[0];
 
-    ds.data = [];
-    chart.data.labels = [];
+    ds.data = [0, 0];
+    chart.data.labels = ['1', '2'];
+
+    // edit chart display options
+    chart.options.rotation = 0;
+    chart.options.plugins.counter.chartText = letter;
 
     chart.update();
     socket.emit('request-update');
-    
+
+    voteButton.disabled = false;
 });
 
 // Input forms
@@ -326,6 +342,10 @@ form.addEventListener('submit', (e) => {
     if (/^[a-zA-Z]$/.test(voteInput.value)) {
         voteInput.value = "";
         console.log(userLetter);
+
+        // Lock the button
+        voteButton.disabled = true;
+
         socket.emit('vote', userLetter.toUpperCase());
 
         // lock the input box
