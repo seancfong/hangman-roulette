@@ -210,11 +210,19 @@ socket.on('update-playerlist', (users) => {
         var playerName = document.createElement('p');
 
         playerName.innerHTML = userInfo.playerName;
+        
+        // bold the client-sided player
         if (userInfo.id === socket.id) {
             playerName.classList.add('bold');
         }
 
+        // display vote icon if voted
+        if (userInfo.vote) {
+            playerName.classList.add('voted');
+        }
+
         d.appendChild(playerName);
+        d.classList.add('player-container');
         li.appendChild(d);
         playerBox.appendChild(li);
     }

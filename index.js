@@ -41,7 +41,9 @@ const newUser = (playerName, id, room) => {
     return {
         playerName: playerName,
         id: id,
-        roomName: room
+        roomName: room,
+        vote: '',
+        points: 0
     }
 } 
 
