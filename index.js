@@ -23,6 +23,18 @@ const roomByID = (id) => {
     return null;
 }
 
+const userByID = (id) => {
+    if (roomByID(id)) {
+        for (let user of allRooms[roomByID(id)].users) {
+            if (user.id === id) {
+                return user;
+            }
+        }
+    }
+
+    return null;
+}
+
 const addNewRoom = (roomName) => {
     allRooms[roomName] = {
         roomName: roomName,
@@ -179,18 +191,48 @@ const selectVote = (roomName) => {
 
     // create timer for wheel spin, in case clients reconnect
     setTimeout(() => {
+        let inWords = false;
+
+        // update the word states on server side
         for (let i = 0; i < curWords.length; i++) {
             for (let j = 0; j < curWords[i].length; j++) {
                 if (letter == curWords[i][j]) {
+                    // is a letter in the words
                     allRooms[roomName].wordStates[i][j] = letter;
+                    inWords = true;
                 }
             }
         }
+
+        // update the player scores
+        for (let user of allRooms[roomName].users) {
+            // console.log(allRooms[roomName].users, user);
+
+            // reward the players who guess right letter and spun by wheel
+            if (inWords) {
+                // points if guess correct letter and was selected
+                if (user.vote == letter) {
+                    user.points += 3;
+                }
+            } else {
+                // points to everyone else who voted but didn't guess wrong
+                if ((user.vote) && user.vote != letter) {
+                    user.points += 1;
+                }
+            }
+            
+
+            // reset user vote
+            user.vote = '';
+        }
+
+        // emit update events for client
         io.to(roomName).emit('update', generateUpdateObject(roomName));
         io.to(roomName).emit('reveal-letter', letter);
+        io.to(roomName).emit('update-playerlist', allRooms[roomName].users);
 
         resetGameLoop(roomName);
-    }, 20000);
+    }, 15000);
 }
 
 
@@ -216,7 +258,6 @@ io.on('connection', socket => {
     });
 
     socket.on('vote', (letter) => {
-        console.log(letter);
 
         var voteOptions = allRooms[roomByID(socket.id)].voteOptions;
         var openVoting = allRooms[roomByID(socket.id)].openVoting;
@@ -224,13 +265,25 @@ io.on('connection', socket => {
 
         if (voteOptions[letter] && openVoting) {
             voteOptions[letter].votes += 1;
+
+            // store the vote in user object
+            let user = userByID(socket.id);
+            user.vote = letter;
+
             allRooms[roomByID(socket.id)].totalVotes++;
             if (!activeTimer) {
                 checkMajorityTimer(roomByID(socket.id));
             }
+
+            let userArray = [];
+
+            if (socketIDRooms[socket.id]) {
+                userArray = allRooms[roomByID(socket.id)].users;
+            }
             
             // Update the voteOptions on other devices
             emitToRoom(socket, 'update', true);
+            emitToRoom(socket, 'update-playerlist', false, userArray);
         }
     });
 

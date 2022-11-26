@@ -209,7 +209,7 @@ socket.on('update-playerlist', (users) => {
         var d = document.createElement('div');  
         var playerName = document.createElement('p');
 
-        playerName.innerHTML = userInfo.playerName;
+        playerName.innerHTML = `${userInfo.playerName} [${userInfo.points}]`;
         
         // bold the client-sided player
         if (userInfo.id === socket.id) {
@@ -281,7 +281,7 @@ socket.on('update', (gameData) => {
 socket.on('spinWheel', (data) => {
     let randomDegree = data.randomDegree;
     let allVotes = data.allVotes;
-    let dTheta = 20;
+    let dTheta = 21;
     let aTheta = -1;
 
     let degreeIndex;
@@ -308,7 +308,7 @@ socket.on('spinWheel', (data) => {
             hasFinished = true;
             console.log('done spinning');
         }
-    }, 15);
+    }, 11);
 });
 
 
