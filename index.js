@@ -17,7 +17,22 @@ var allRooms = {};
 var socketIDRooms = {};
 
 const roomByID = (id) => {
-    return allRooms[socketIDRooms[id]].roomName;
+    if (allRooms[socketIDRooms[id]]) {
+        return allRooms[socketIDRooms[id]].roomName;
+    }
+    return null;
+}
+
+const userByID = (id) => {
+    if (roomByID(id)) {
+        for (let user of allRooms[roomByID(id)].users) {
+            if (user.id === id) {
+                return user;
+            }
+        }
+    }
+
+    return null;
 }
 
 const addNewRoom = (roomName) => {
@@ -38,7 +53,9 @@ const newUser = (playerName, id, room) => {
     return {
         playerName: playerName,
         id: id,
-        roomName: room
+        roomName: room,
+        vote: '',
+        points: 0
     }
 } 
 
@@ -91,15 +108,6 @@ app.get('/join/:roomName/*', (req, res) => {
 // Alphabet array 
 const alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
 
-const getRandomColor = () => {
-    var letters = '0123456789ABCDEF';
-    var color = '#';
-    for (var i = 0; i < 6; i++) {
-      color += letters[Math.floor(Math.random() * 16)];
-    }
-    return color;
-}
-
 // Voting options
 const resetVoteOptions = (roomName) => {
     allRooms[roomName].voteOptions = {};
@@ -108,7 +116,6 @@ const resetVoteOptions = (roomName) => {
         allRooms[roomName].voteOptions[alphaString] = {
             votes: 0,
             label: alphaString,
-            bgColor: getRandomColor()
         }
     }
 };
@@ -127,12 +134,24 @@ const checkMajorityTimer = (roomName) => {
     }
 };
 
+const emitToRoom = (socket, event, hasObject = false, toSend = null) => {
+    if (hasObject) {
+        io.to(roomByID(socket.id)).emit(event, generateUpdateObject(roomByID(socket.id)));
+    } else if (toSend) {
+        io.to(roomByID(socket.id)).emit(event, toSend);
+    } else {
+        io.to(roomByID(socket.id)).emit(event);
+    }
+    
+}; 
+
 const generateUpdateObject = (roomName) => {
     let room = allRooms[roomName];
     return {
         voteOptions: room.voteOptions,
         totalVotes: room.totalVotes,
-        wordStates: room.wordStates
+        wordStates: room.wordStates,
+        users: room.users
     }
 };
 
@@ -170,15 +189,53 @@ const selectVote = (roomName) => {
 
     let curWords = allRooms[roomName].curWords;
 
-    for (let i = 0; i < curWords.length; i++) {
-        for (let j = 0; j < curWords[i].length; j++) {
-            if (letter == curWords[i][j]) {
-                allRooms[roomName].wordStates[i][j] = letter;
+    // create timer for wheel spin, in case clients reconnect
+    setTimeout(() => {
+        let inWords = false;
+
+        // update the word states on server side
+        for (let i = 0; i < curWords.length; i++) {
+            for (let j = 0; j < curWords[i].length; j++) {
+                if (letter == curWords[i][j]) {
+                    // is a letter in the words
+                    allRooms[roomName].wordStates[i][j] = letter;
+                    inWords = true;
+                }
             }
         }
-    }
-    
+
+        // update the player scores
+        for (let user of allRooms[roomName].users) {
+            // console.log(allRooms[roomName].users, user);
+
+            // reward the players who guess right letter and spun by wheel
+            if (inWords) {
+                // points if guess correct letter and was selected
+                if (user.vote == letter) {
+                    user.points += 3;
+                }
+            } else {
+                // points to everyone else who voted but didn't guess wrong
+                if ((user.vote) && user.vote != letter) {
+                    user.points += 1;
+                }
+            }
+            
+
+            // reset user vote
+            user.vote = '';
+        }
+
+        // emit update events for client
+        io.to(roomName).emit('update', generateUpdateObject(roomName));
+        io.to(roomName).emit('reveal-letter', letter);
+        io.to(roomName).emit('update-playerlist', allRooms[roomName].users);
+
+        resetGameLoop(roomName);
+    }, 15000);
 }
+
+
 
 // Will run when client connects to server
 io.on('connection', socket => {
@@ -194,13 +251,13 @@ io.on('connection', socket => {
         socket.join(clientData.roomName);
 
         console.log(`Updating room ${roomByID(socket.id)}`);
-        io.to(roomByID(socket.id)).emit('update', generateUpdateObject(roomByID(socket.id)));
+        emitToRoom(socket, 'update', true);
 
         console.log(allRooms[user.roomName].users);
+        emitToRoom(socket, 'update-playerlist', false, allRooms[user.roomName].users);
     });
 
     socket.on('vote', (letter) => {
-        console.log(letter);
 
         var voteOptions = allRooms[roomByID(socket.id)].voteOptions;
         var openVoting = allRooms[roomByID(socket.id)].openVoting;
@@ -208,13 +265,25 @@ io.on('connection', socket => {
 
         if (voteOptions[letter] && openVoting) {
             voteOptions[letter].votes += 1;
+
+            // store the vote in user object
+            let user = userByID(socket.id);
+            user.vote = letter;
+
             allRooms[roomByID(socket.id)].totalVotes++;
             if (!activeTimer) {
                 checkMajorityTimer(roomByID(socket.id));
             }
+
+            let userArray = [];
+
+            if (socketIDRooms[socket.id]) {
+                userArray = allRooms[roomByID(socket.id)].users;
+            }
             
             // Update the voteOptions on other devices
-            io.to(roomByID(socket.id)).emit('update', generateUpdateObject(roomByID(socket.id)));
+            emitToRoom(socket, 'update', true);
+            emitToRoom(socket, 'update-playerlist', false, userArray);
         }
     });
 
@@ -224,21 +293,38 @@ io.on('connection', socket => {
 
     socket.on('request-update', (data) => {
         console.log('request update');
-        io.to(roomByID(socket.id)).emit('update', generateUpdateObject(roomByID(socket.id)));
+        emitToRoom(socket, 'update', true);
     });
 
-    socket.on('new-round', (data) => {
-        console.log('new round');
-        resetGameLoop(roomByID(socket.id));
-        io.to(roomByID(socket.id)).emit('update', generateUpdateObject(roomByID(socket.id)));
-    });
+    socket.on('disconnect', (reason) => {
+        console.log('disconnect', socket.id);
+        let userArray = [];
+
+        if (socketIDRooms[socket.id]) {
+            userArray = allRooms[roomByID(socket.id)].users;
+        }
+
+        // Remove user from user list
+        for(let i = 0; i < userArray.length; i++){ 
+            if (userArray[i].id === socket.id) { 
+                userArray.splice(i, 1); 
+                break;
+            }
+        }
+
+        console.log('updated player list: ', userArray);
+        if (allRooms[roomByID(socket.id)]) {
+            emitToRoom(socket, 'update-playerlist', false, userArray);
+        }
+    })
 
 });
 
 
+
 // Game-handling functions
 const generateWords = (roomName) => {
-    let genWords = randomWords({exactly:3, wordsPerString:1, formatter: (word) => word.toUpperCase()});
+    let genWords = randomWords({exactly:3, wordsPerString:1, maxLength:8, formatter: (word) => word.toUpperCase()});
     for (let word of genWords) {
         let wordArray = [];
         let wordStateArray = [];

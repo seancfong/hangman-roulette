@@ -4,24 +4,51 @@ console.log('Nothing useful is going to be here anyways, but feel free to just s
 // DOM objects
 const votingCountHeader = document.getElementById('voting-count-header');
 const wordBox = document.getElementById('hangman-word-content');
+const playerBox = document.getElementById('player-list-ul');
+const voteButton = document.getElementById('vote-button');
 
 // Create chart
 const ctx = document.getElementById('vote-chart').getContext('2d');
 const drawingCanvas = document.getElementById('hangman-display');
 const ctxDraw = drawingCanvas.getContext('2d');
 
+const getRandomColor = () => {
+    var letters = '0123456789ABCDEF';
+    var color = '#';
+    for (var i = 0; i < 6; i++) {
+      color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
+}
+
+// Rotation interval for animation
+let rotationInterval;
+
 var chartData = {
-    labels: [],
+    labels: ['1', '2'],
     datasets: [
         {
-            label: 'Dataset 1',
-            data: [],
+            label: 'Vote Data',
+            data: [0, 0],
             backgroundColor: [],
-            cutout: '80%'
+            cutout: '70%'
+        },
+        {
+            label: 'Timer',
+            data: [100, 1],
+            backgroundColor: ['#000000', '#ffffff'],
+            radius: '90%',
+            cutout: '90%',
         }
     ],
     
 };
+
+const alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+
+for (let i = 0; i < 26; i++) {
+    chartData.datasets[0].backgroundColor.push(getRandomColor());
+}
 
 const emptyPlugin = {
     id: 'emptyDoughnut',
@@ -125,18 +152,7 @@ swal("Enter your name:", {
     socket.emit('joinRoom', {playerName, roomName});
 });
 
-// Whenever a vote udates the chart
-socket.on('update', (gameData) => {
-    var alphaKeys = Object.entries(gameData.voteOptions);
-    var totalVotes = gameData.totalVotes;
-    var wordStates = gameData.wordStates;
-
-    console.log(wordStates);
-    console.log(totalVotes);
-
-    // Update current word statuses
-    // console.log(wordBox.children);
-
+const updateWordStatus = (wordStates) => {
     if (wordBox.children.length == 0) {
         for (let wordArray of wordStates) {
             for (let letter of wordArray) {
@@ -173,13 +189,60 @@ socket.on('update', (gameData) => {
                 index++;
             }
             index++;
-        }
-        
+        } 
     }
-    
+};
+
+const removeAllChildNodes = (parent) => {
+    while (parent.firstChild) {
+        parent.removeChild(parent.firstChild);
+    }
+}
+
+// Whenever the playerlist needs to update
+socket.on('update-playerlist', (users) => {
+    console.log('updating player list', playerBox.children, users);
+    removeAllChildNodes(playerBox);
+
+    for (let userInfo of users) {
+        var li = document.createElement('li');
+        var d = document.createElement('div');  
+        var playerName = document.createElement('p');
+
+        playerName.innerHTML = `${userInfo.playerName} [${userInfo.points}]`;
+        
+        // bold the client-sided player
+        if (userInfo.id === socket.id) {
+            playerName.classList.add('bold');
+        }
+
+        // display vote icon if voted
+        if (userInfo.vote) {
+            playerName.classList.add('voted');
+        }
+
+        d.appendChild(playerName);
+        d.classList.add('player-container');
+        li.appendChild(d);
+        playerBox.appendChild(li);
+    }
+});
+
+// Whenever a vote udates the chart
+socket.on('update', (gameData) => {
+    var alphaKeys = Object.entries(gameData.voteOptions);
+    var totalVotes = gameData.totalVotes;
+    var wordStates = gameData.wordStates;
+    var users = gameData.users;
+
+    console.log(wordStates);
+    console.log(totalVotes);
+
+    // Update current word statuses
+    updateWordStatus(wordStates);
 
     // Update votes
-    votingCountHeader.innerHTML = `Open Voting Total: ${totalVotes}`;
+    votingCountHeader.innerHTML = `Total Votes: ${totalVotes}`;
 
     // Update chart
     const data = chart.data;
@@ -200,7 +263,6 @@ socket.on('update', (gameData) => {
             } else {
                 // Add new label
                 data.labels.push(key);
-                ds.backgroundColor.push(letterData.bgColor);
                 ds.data.push(letterData.votes);
             }   
         }   
@@ -218,19 +280,18 @@ socket.on('update', (gameData) => {
 
 socket.on('spinWheel', (data) => {
     let randomDegree = data.randomDegree;
-    let letter = data.letter;
     let allVotes = data.allVotes;
-    let dTheta = 30;
+    let dTheta = 21;
+    let aTheta = -1;
 
     let degreeIndex;
     let realDegree;
 
     chart.options.animation.duration = 0;
 
-    let rotationInterval = window.setInterval(() => {
+    rotationInterval = window.setInterval(() => {
         chart.options.rotation = chart.options.rotation + dTheta;
         chart.update();
-
 
         realDegree = (-1 * chart.options.rotation) + 360;
         degreeIndex = Math.floor((((realDegree + 90) % 360) / 360) * allVotes.length);
@@ -239,42 +300,41 @@ socket.on('spinWheel', (data) => {
         // reset degree if over 360
         if (chart.options.rotation >= 360) {
             if (dTheta > 1) {
-                dTheta -= 1;
-            }
+                dTheta += aTheta;
+            } 
             chart.options.rotation = 0;
         } else if (dTheta == 1 && chart.options.rotation == (randomDegree + 90) % 360) {
             clearInterval(rotationInterval);
+            hasFinished = true;
             console.log('done spinning');
-            chart.options.animation.duration = 800;
-            setTimeout(revealLetter, 2000, letter);
         }
-    }, 20);
+    }, 11);
 });
 
 
 // Hangman Canvas
-const revealLetter = (letter) => {
-    console.log(letter);
+socket.on('reveal-letter', (letter) => {
+    // clear spinning interval
+    clearInterval(rotationInterval);
 
-    socket.emit('new-round');
+    // reset animation
+    chart.options.animation.duration = 800;
 
     // reset client chart data
     let ds = chart.data.datasets[0];
 
-    console.log('ds data', ds.data);
-    console.log('data labels', chart.data.labels);
+    ds.data = [0, 0];
+    chart.data.labels = ['1', '2'];
 
-    ds.data = [];
-    chart.data.labels = [];
-
+    // edit chart display options
+    chart.options.rotation = 0;
+    chart.options.plugins.counter.chartText = letter;
 
     chart.update();
     socket.emit('request-update');
 
-    
-
-    
-}
+    voteButton.disabled = false;
+});
 
 // Input forms
 const form = document.getElementById('vote-form');
@@ -290,6 +350,10 @@ form.addEventListener('submit', (e) => {
     if (/^[a-zA-Z]$/.test(voteInput.value)) {
         voteInput.value = "";
         console.log(userLetter);
+
+        // Lock the button
+        voteButton.disabled = true;
+
         socket.emit('vote', userLetter.toUpperCase());
 
         // lock the input box
