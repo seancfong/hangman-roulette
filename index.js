@@ -11,7 +11,9 @@ const server = http.createServer(app);
 const io = socketio(server);
 
 const DEBUG = true;
-const TIMER_LENGTH = 5000;
+const TIMER_LENGTH = 10000;  // 15000
+const SPIN_LENGTH = 12000;  // 12000
+const SPIN_DELAY = 3000;  // 3000
 
 var allRooms = {};
 var socketIDRooms = {};
@@ -42,6 +44,7 @@ const addNewRoom = (roomName) => {
         curWords: [],
         wordStates: [],
         incorrectLetters: [],
+        correctLetters: [],
         activeTimer: false,
         chartData: {},
         totalVotes: 0,
@@ -136,7 +139,7 @@ const checkMajorityTimer = (roomName) => {
             io.to(roomName).emit('end-vote-timer');
             allRooms[roomName].openVoting = false;
             selectVote(roomName);
-        }, TIMER_LENGTH + 3000);
+        }, TIMER_LENGTH + SPIN_DELAY);
         
     }
 };
@@ -217,10 +220,25 @@ const selectVote = (roomName) => {
             }
         }
 
+        let isDuplicate = false;
+        if (allRooms[roomName].correctLetters.find((l) => l == letter)) {
+            isDuplicate = true;
+        }
+
+        // if inWords and not in correct list, then add to correct letter track
+        if (inWords && (!allRooms[roomName].correctLetters.find((l) => l == letter))) {
+            allRooms[roomName].correctLetters.push(letter);
+        }
+
         // if not in words and incorrect list, then add to incorrect letters list
         if (!inWords && (!allRooms[roomName].incorrectLetters.find((l) => l == letter))) {
             allRooms[roomName].incorrectLetters.push(letter);
         }
+
+        let playersEarned = {
+            reason: '',
+            users: []
+        };
 
         // update the player scores
         for (let user of allRooms[roomName].users) {
@@ -229,18 +247,27 @@ const selectVote = (roomName) => {
             // reward the players who guess right letter and spun by wheel
             if (inWords) {
                 // points if guess correct letter and was selected
-                if (user.vote == letter) {
+                if ((!isDuplicate) && user.vote == letter) {
                     user.points += 3;
+                    playersEarned.users.push(user);
+                    playersEarned.reason = 'inWord';
                 }
             } else {
                 // points to everyone else who voted but didn't guess wrong
-                if ((user.vote) && user.vote != letter) {
+                if ((!isDuplicate) && (user.vote) && user.vote != letter) {
                     user.points += 1;
+                    playersEarned.users.push(user);
+                    playersEarned.reason = 'notInWord';
                 }
             }
 
             // reset user vote
             user.vote = '';
+        }
+
+        if (isDuplicate) {
+            playersEarned.reason = 'duplicate';
+            playersEarned.users = [];
         }
 
         if (letterDiffs == 0) {
@@ -262,9 +289,9 @@ const selectVote = (roomName) => {
         io.to(roomName).emit('update', generateUpdateObject(roomName));
         io.to(roomName).emit('reveal-letter', letter);
         io.to(roomName).emit('update-playerlist', allRooms[roomName].users);
-
+        io.to(roomName).emit('points-notify', playersEarned);
         
-    }, 15000);
+    }, SPIN_LENGTH);
 }
 
 
@@ -371,7 +398,7 @@ io.on('connection', socket => {
 // Game-handling functions
 const generateWords = (roomName) => {
     let genWords = randomWords({exactly:2, wordsPerString:1, maxLength:8, formatter: (word) => word.toUpperCase()});
-    // genWords = ['X'];
+    // genWords = ['X', 'Y'];
     for (let word of genWords) {
         let wordArray = [];
         let wordStateArray = [];
@@ -409,6 +436,7 @@ const resetGame = (roomName) => {
     allRooms[roomName].curWords = [];
     allRooms[roomName].wordStates = [];
     allRooms[roomName].incorrectLetters = [];
+    allRooms[roomName].correctLetters = [];
 
     // Reset user points
     resetUserPoints(roomName);
