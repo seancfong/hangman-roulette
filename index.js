@@ -11,7 +11,7 @@ const server = http.createServer(app);
 const io = socketio(server);
 
 const DEBUG = true;
-const TIMER_LENGTH = 10000;  // 15000
+const TIMER_LENGTH = 15000;  // 15000
 const SPIN_LENGTH = 12000;  // 12000
 const SPIN_DELAY = 3000;  // 3000
 
@@ -237,12 +237,16 @@ const selectVote = (roomName) => {
 
         let playersEarned = {
             reason: '',
-            users: []
+            users: [],
+            abstained: []
         };
 
         // update the player scores
         for (let user of allRooms[roomName].users) {
             // console.log(allRooms[roomName].users, user);
+            if (!user.vote) {
+                playersEarned.abstained.push(user);
+            }
 
             // reward the players who guess right letter and spun by wheel
             if (inWords) {
@@ -327,19 +331,21 @@ io.on('connection', socket => {
         var openVoting = allRooms[roomByID(socket.id)].openVoting;
         var activeTimer = allRooms[roomByID(socket.id)].activeTimer;
 
-        if (openVoting && !voteOptions[letter]) {
-            voteOptions[letter] = {
-                votes: 0,
-                label: letter
+        // store the vote in user object
+        let user = userByID(socket.id);
+
+        // only count vote if the user hasn't voted yet
+        if ((!user.vote) && openVoting) {
+            // if first time voting for a letter, add to record
+            if (!voteOptions[letter]) {
+                voteOptions[letter] = {
+                    votes: 0,
+                    label: letter
+                }
             }
-        }
 
-        if (openVoting) {
-            voteOptions[letter].votes += 1;
-
-            // store the vote in user object
-            let user = userByID(socket.id);
             user.vote = letter;
+            voteOptions[letter].votes += 1;
 
             allRooms[roomByID(socket.id)].totalVotes++;
             if (!activeTimer) {
