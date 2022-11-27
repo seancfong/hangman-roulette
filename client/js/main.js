@@ -530,7 +530,7 @@ const notifyEarned = (playersEarned) => {
         bulletList = '';
     }
 
-    bulletList += '</ul>';
+    bulletList += '</ul>'; 
 
     const Toast = Swal.mixin({
         toast: true,
