@@ -1,4 +1,12 @@
 # Hangman Roulette
-It's hangman, but with a twist (or spin?)
+It's a classic spin on a game of hangman!
 
-More substance will be provided soon!
+
+
+### TODO List
+
+- [ ] Sort players by points
+- [-] Fix wheel spin animation when tab is inactive
+- [-] Implement countdown timer for votes > 3 players
+- [ ] Create popup for when players accumulate points
+- [ ] Disable vote button for new players

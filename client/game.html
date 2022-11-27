@@ -13,7 +13,7 @@
     <title>Hangman Roulette</title>
 </head>
 <body class="pt-1 pt-sm-3 pt-md-3 pt-lg-3">
-    <div class="row m-0 mt-3  mt-sm-5 mt-md-5 mt-lg-5  mb-1 mb-sm-3 mb-md-3 mb-lg-3">
+    <div class="row m-0 mt-3 mt-sm-5 mt-md-5 mt-lg-5  mb-1 mb-sm-3 mb-md-3 mb-lg-3">
         <h1 align="center">Hangman Roulette</h1>
     </div>
     
@@ -29,7 +29,7 @@
             </div>
             
             
-            <div id="vote-input-section" class="mt-3" align="center">
+            <div id="vote-input-section" align="center">
                 <form id="vote-form" action="">
                     <input type="text" placeholder="ex: A" value="" id="vote-text-input" autofocus/>
                     <input type="submit" value="Vote" id="vote-button" class="btn btn-success btn-sm"/>
@@ -38,7 +38,7 @@
             
         </div>
         <div class="hangman-container col-10 offset-1  col-sm-5 offset-sm-0  col-md-5 offset-md-0 col-lg-4" align="center">
-            <canvas id="hangman-display"></canvas>
+            <div id="incorrect-container"></div>
             <div id="hangman-word-content" class="border border-2 border-dark">
             </div>
             <div id="player-list" class="border border-2 border-dark">
@@ -62,10 +62,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.1.0/chartjs-plugin-datalabels.min.js"></script>
 
     <!-- Sweet Alert for better alert messages -->
-    <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
+    <link href="//cdn.jsdelivr.net/npm/@sweetalert2/themes@5.0.15/bootstrap-4/bootstrap-4.min.css" rel="stylesheet">
+    <script src="//cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.js"></script>
 
-    <script src="js/main.js"></script>
-    <script src="js/canvas.js"></script>
+    <script type="module" src="js/main.js"></script>
 
 
     <!-- <a target="_blank" href="https://icons8.com/icon/73849/up-arrow">Up Arrow</a> icon by <a target="_blank" href="https://icons8.com">Icons8</a> -->

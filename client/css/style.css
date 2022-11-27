@@ -38,6 +38,33 @@ body {
     margin-bottom: 3px;
 }
 
+#vote-input-section {
+    margin-top: 1.5rem;
+}
+
+#incorrect-container {
+    height: 5rem;
+    background-color: #efefef;
+    margin-bottom: 0.5rem;
+    overflow-y: scroll;
+}
+
+.incorrect-letter-container {
+    display: inline-block;
+    border: 2px solid #ddd;
+    background-color: rgb(184, 114, 114);
+    color: #eee;
+    margin: 0.5rem 0.1rem 0.1rem 0rem;
+    padding: 0 0.5rem 0 0.5rem;
+    width: 2rem;
+}
+
+.incorrect-letter-container p {
+    text-align: center;
+    font-size: 18px;
+    padding: 0;
+}
+
 #hangman-container {
     display: flex;
 }
@@ -55,11 +82,11 @@ body {
     padding-top: 5px;
 }
 
-#hangman-word-content div {
+.hangman-letter-box {
     display: inline-block;
     border: 2px solid #eee;
     background-color: #fcfcfc;
-    margin: 0 0.1rem 0.2rem;
+    margin: 0.5rem 0.1rem 0.5rem;
     padding: 0 0.5rem;
 }
 
@@ -134,13 +161,17 @@ h3 {
     #vote-chart-container {
         display: flex;
         position: relative;
-        padding: 10px;
+        padding: 0 10px 0 10px;
     }
 
     #pointer-arrow {
         position: absolute;
         width: 1.5em;
         top: 50%;
+    }
+
+    #vote-input-section {
+        margin-top: 0.5rem;
     }
 
     p {
@@ -159,8 +190,12 @@ h3 {
         display: flex;
         position: relative;
         padding: 10px;
-        width: 60%;
+        width: 65%;
         float: left;
+    }
+
+    #vote-form {
+        margin-top: 8rem;
     }
 
     p {

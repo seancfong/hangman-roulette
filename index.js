@@ -11,7 +11,7 @@ const server = http.createServer(app);
 const io = socketio(server);
 
 const DEBUG = true;
-const TIMER_LENGTH = 3000;
+const TIMER_LENGTH = 5000;
 
 var allRooms = {};
 var socketIDRooms = {};
@@ -41,6 +41,7 @@ const addNewRoom = (roomName) => {
         users: [],
         curWords: [],
         wordStates: [],
+        incorrectLetters: [],
         activeTimer: false,
         chartData: {},
         totalVotes: 0,
@@ -58,6 +59,12 @@ const newUser = (playerName, id, room) => {
         points: 0
     }
 } 
+
+const resetUserPoints = (roomName) => {
+    for (user of allRooms[roomName].users) {
+        user.points = 0;
+    }
+};
 
 
 // Have app serve front-end static files
@@ -108,18 +115,6 @@ app.get('/join/:roomName/*', (req, res) => {
 // Alphabet array 
 const alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
 
-// Voting options
-const resetVoteOptions = (roomName) => {
-    allRooms[roomName].voteOptions = {};
-    for (var i = 0; i < 26; i++) {
-        let alphaString = `${alphabet[i]}`;
-        allRooms[roomName].voteOptions[alphaString] = {
-            votes: 0,
-            label: alphaString,
-        }
-    }
-};
-
 const checkMajorityTimer = (roomName) => {
     let totalVotes = allRooms[roomName].totalVotes;
 
@@ -130,7 +125,19 @@ const checkMajorityTimer = (roomName) => {
         console.log('Countdown timer now!');
         allRooms[roomName].activeTimer = true;
 
-        setTimeout(selectVote, TIMER_LENGTH, roomName);
+        // Start vote timer 
+        io.to(roomName).emit('start-vote-timer', {
+            timerDuration: TIMER_LENGTH,
+            timerStart: Date.now()
+        });
+
+        // End vote timer and select vote
+        setTimeout(() => {
+            io.to(roomName).emit('end-vote-timer');
+            allRooms[roomName].openVoting = false;
+            selectVote(roomName);
+        }, TIMER_LENGTH + 3000);
+        
     }
 };
 
@@ -151,7 +158,8 @@ const generateUpdateObject = (roomName) => {
         voteOptions: room.voteOptions,
         totalVotes: room.totalVotes,
         wordStates: room.wordStates,
-        users: room.users
+        users: room.users,
+        incorrectLetters: room.incorrectLetters
     }
 };
 
@@ -189,9 +197,11 @@ const selectVote = (roomName) => {
 
     let curWords = allRooms[roomName].curWords;
 
-    // create timer for wheel spin, in case clients reconnect
+    // create delay for wheel spin, in case clients reconnect
     setTimeout(() => {
         let inWords = false;
+
+        let letterDiffs = 0;
 
         // update the word states on server side
         for (let i = 0; i < curWords.length; i++) {
@@ -201,7 +211,15 @@ const selectVote = (roomName) => {
                     allRooms[roomName].wordStates[i][j] = letter;
                     inWords = true;
                 }
+                if (curWords[i][j] != allRooms[roomName].wordStates[i][j]) {
+                    letterDiffs++;
+                }
             }
+        }
+
+        // if not in words and incorrect list, then add to incorrect letters list
+        if (!inWords && (!allRooms[roomName].incorrectLetters.find((l) => l == letter))) {
+            allRooms[roomName].incorrectLetters.push(letter);
         }
 
         // update the player scores
@@ -220,10 +238,24 @@ const selectVote = (roomName) => {
                     user.points += 1;
                 }
             }
-            
 
             // reset user vote
             user.vote = '';
+        }
+
+        if (letterDiffs == 0) {
+            console.log(`[${roomName}] Game completed`);
+            // No more letters to guess
+
+            // Determine winner
+
+            // Reset game
+            resetGame(roomName);
+        } else {
+            // re-enable open voting and continue game loop
+            allRooms[roomName].openVoting = true;
+
+            resetGameLoop(roomName);
         }
 
         // emit update events for client
@@ -231,7 +263,7 @@ const selectVote = (roomName) => {
         io.to(roomName).emit('reveal-letter', letter);
         io.to(roomName).emit('update-playerlist', allRooms[roomName].users);
 
-        resetGameLoop(roomName);
+        
     }, 15000);
 }
 
@@ -258,12 +290,24 @@ io.on('connection', socket => {
     });
 
     socket.on('vote', (letter) => {
+        if (!roomByID(socket.id)) {
+            console.log('require client reconnect');
+            socket.emit('require-reconnect');
+            return;
+        } 
 
         var voteOptions = allRooms[roomByID(socket.id)].voteOptions;
         var openVoting = allRooms[roomByID(socket.id)].openVoting;
         var activeTimer = allRooms[roomByID(socket.id)].activeTimer;
 
-        if (voteOptions[letter] && openVoting) {
+        if (openVoting && !voteOptions[letter]) {
+            voteOptions[letter] = {
+                votes: 0,
+                label: letter
+            }
+        }
+
+        if (openVoting) {
             voteOptions[letter].votes += 1;
 
             // store the vote in user object
@@ -285,13 +329,15 @@ io.on('connection', socket => {
             emitToRoom(socket, 'update', true);
             emitToRoom(socket, 'update-playerlist', false, userArray);
         }
+
+        console.log(voteOptions);
     });
 
     socket.on('updateData', (data) => {
         allRooms[roomByID(socket.id)].chartData = data;
     });
 
-    socket.on('request-update', (data) => {
+    socket.on('request-update', () => {
         console.log('request update');
         emitToRoom(socket, 'update', true);
     });
@@ -324,7 +370,8 @@ io.on('connection', socket => {
 
 // Game-handling functions
 const generateWords = (roomName) => {
-    let genWords = randomWords({exactly:3, wordsPerString:1, maxLength:8, formatter: (word) => word.toUpperCase()});
+    let genWords = randomWords({exactly:2, wordsPerString:1, maxLength:8, formatter: (word) => word.toUpperCase()});
+    // genWords = ['X'];
     for (let word of genWords) {
         let wordArray = [];
         let wordStateArray = [];
@@ -348,7 +395,7 @@ const resetGameLoop = (roomName) => {
 
     // reset all votes
     allRooms[roomName].totalVotes = 0;
-    resetVoteOptions(roomName);
+    allRooms[roomName].voteOptions = {};
     allRooms[roomName].openVoting = true;
 
     if (DEBUG) {
@@ -361,6 +408,10 @@ const resetGame = (roomName) => {
     // Reset game data
     allRooms[roomName].curWords = [];
     allRooms[roomName].wordStates = [];
+    allRooms[roomName].incorrectLetters = [];
+
+    // Reset user points
+    resetUserPoints(roomName);
 
     // Generate new words
     generateWords(roomName);
