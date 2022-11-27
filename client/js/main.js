@@ -6,11 +6,10 @@ const votingCountHeader = document.getElementById('voting-count-header');
 const wordBox = document.getElementById('hangman-word-content');
 const playerBox = document.getElementById('player-list-ul');
 const voteButton = document.getElementById('vote-button');
+const incorrectContainer = document.getElementById('incorrect-container')
 
 // Create chart
 const ctx = document.getElementById('vote-chart').getContext('2d');
-const drawingCanvas = document.getElementById('hangman-display');
-const ctxDraw = drawingCanvas.getContext('2d');
 
 const getRandomColor = () => {
     var letters = '0123456789ABCDEF';
@@ -21,8 +20,11 @@ const getRandomColor = () => {
     return color;
 }
 
-// Rotation interval for animation
+// Rotation interval for wheel animation
 let rotationInterval;
+
+// Timer interval for timer animation
+let timerInterval;
 
 var chartData = {
     labels: ['1', '2'],
@@ -35,7 +37,7 @@ var chartData = {
         },
         {
             label: 'Timer',
-            data: [100, 1],
+            data: [0, 100],
             backgroundColor: ['#000000', '#ffffff'],
             radius: '90%',
             cutout: '90%',
@@ -124,33 +126,74 @@ const chart = new Chart(ctx, {
 });
 
 // Connect to the server
-const socket = io();
+const socket = io('/', {forceNew: true});
 
 const roomName = window.location.pathname.split("/").at(-2);
 console.log( roomName );
 
 var playerName;
 
+const resetCharts = () => {
+    let ds = chart.data.datasets[0];
+
+    ds.data = [0, 0];
+    
+    chart.data.labels = ['1', '2'];
+    chart.data.datasets[1].data[0] = 0;
+    chart.data.datasets[1].data[1] = 100;
+
+    // edit chart display options
+    chart.options.rotation = 0;
+
+    chart.update();
+};
+
 // Sweet alert to prompt the user
-swal("Enter your name:", {
-    closeOnEsc: false,
-    closeOnClickOutside: false,
-    content: "input",
-    button: {
-        text: "Join Game",
-        closeModal: true,
-    },
-})
-.then((value) => {
-    playerName = value;
-    if (!playerName) {
-        playerName = 'Player';
+const greetUser = async () => {
+    const { value: playerName } = await Swal.fire({
+        title: 'Enter your name',
+        input: 'text',
+        showCancelButton: false,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        inputValidator: (value) => {
+          if (!value) {
+            return "Please enter in a name"
+          }
+        }
+    })
+
+    if (playerName) {
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 4000,
+            timerProgressBar: true,
+            didOpen: (toast) => {
+              toast.addEventListener('mouseenter', Swal.stopTimer)
+              toast.addEventListener('mouseleave', Swal.resumeTimer)
+            }
+          })
+          
+          Toast.fire({
+            icon: 'success',
+            title: `Joined room ${roomName}`
+          })
+
+        socket.emit('joinRoom', {playerName, roomName});
+
+        resetCharts();
+        clearInterval(timerInterval);
+        clearInterval(rotationInterval);
+
+        chart.options.animation.duration = 800;
+
+        voteButton.disabled = false;
+        socket.emit('request-update');
     }
-    swal(`Welcome, ${playerName}!`, {
-        icon: "success"
-    });
-    socket.emit('joinRoom', {playerName, roomName});
-});
+};
+
 
 const updateWordStatus = (wordStates) => {
     if (wordBox.children.length == 0) {
@@ -166,6 +209,7 @@ const updateWordStatus = (wordStates) => {
                 }
                 
                 d.appendChild(l);
+                d.classList.add('hangman-letter-box');
                 wordBox.appendChild(d);
             }
             // insert line break
@@ -193,11 +237,42 @@ const updateWordStatus = (wordStates) => {
     }
 };
 
+const updateIncorrectLetters = (incorrectLetters) => {
+    removeAllChildNodes(incorrectContainer);
+
+    for (let letter of incorrectLetters) {
+        var d = document.createElement('div');  
+        var incLetter = document.createElement('p');
+
+        incLetter.innerHTML = letter;
+
+        d.appendChild(incLetter);
+        d.classList.add('incorrect-letter-container');
+        incorrectContainer.appendChild(d);
+    }
+
+};
+
 const removeAllChildNodes = (parent) => {
     while (parent.firstChild) {
         parent.removeChild(parent.firstChild);
     }
 }
+
+socket.on('require-reconnect', () => {
+    Swal.fire({
+        icon: 'error',
+        title: 'Oops...',
+        text: 'The server engineering monkeys tripped over a few cables. You may have to restart your game.',
+        showCancelButton: false,
+        footer: 'Sorry for the inconvenience!',
+        confirmButtonText: 'Back to homepage',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+    }).then((result) => {
+        window.location.replace('/');
+    });
+})
 
 // Whenever the playerlist needs to update
 socket.on('update-playerlist', (users) => {
@@ -233,13 +308,16 @@ socket.on('update', (gameData) => {
     var alphaKeys = Object.entries(gameData.voteOptions);
     var totalVotes = gameData.totalVotes;
     var wordStates = gameData.wordStates;
-    var users = gameData.users;
+    var incorrectLetters = gameData.incorrectLetters;
 
     console.log(wordStates);
     console.log(totalVotes);
 
     // Update current word statuses
     updateWordStatus(wordStates);
+
+    // Update incorrect letters
+    updateIncorrectLetters(incorrectLetters);
 
     // Update votes
     votingCountHeader.innerHTML = `Total Votes: ${totalVotes}`;
@@ -278,18 +356,72 @@ socket.on('update', (gameData) => {
     });
 });
 
+socket.on('start-vote-timer', timerData => {
+    let timerDuration = timerData.timerDuration;
+    let timerStart = timerData.timerStart;
+
+    let timerDS = chart.data.datasets[1].data;
+
+    chart.options.animation.duration = 800;
+
+    console.log('timerDS', timerDS);
+
+    timerInterval = setInterval(() => {
+        let elapsedTime = Date.now() - timerStart;
+
+        // console.log(elapsedTime);
+
+        // 0th index is the timer value
+        timerDS[0] = elapsedTime;
+
+        // 1st index is the timer background
+        timerDS[1] = timerDuration - elapsedTime;
+
+        if (elapsedTime >= timerDuration) {
+            // Lock the button and votes
+            voteButton.disabled = true;
+            clearInterval(timerInterval);
+        }
+
+        chart.update();
+        
+    }, 100);
+});
+
+socket.on('end-vote-timer', () => {
+    clearInterval(timerInterval);
+    chart.options.animation.duration = 800;
+
+})
+
+const updateThetaCheckpoint = (elapsedTime, dTheta) => {
+    if (elapsedTime > 9500) {
+        return 1;
+    } else if (elapsedTime > 7700) {
+        return 2;
+    } else if (elapsedTime > 6500) {
+        return 3;
+    } else if (elapsedTime > 5000) {
+        return 4;
+    }
+    return dTheta;
+};
+
 socket.on('spinWheel', (data) => {
     let randomDegree = data.randomDegree;
     let allVotes = data.allVotes;
     let dTheta = 21;
     let aTheta = -1;
 
+    let wheelStart = Date.now();
+
     let degreeIndex;
     let realDegree;
 
     chart.options.animation.duration = 0;
 
-    rotationInterval = window.setInterval(() => {
+    rotationInterval = setInterval(() => {
+
         chart.options.rotation = chart.options.rotation + dTheta;
         chart.update();
 
@@ -299,16 +431,20 @@ socket.on('spinWheel', (data) => {
 
         // reset degree if over 360
         if (chart.options.rotation >= 360) {
+            let elapsedTime = Date.now() - wheelStart;
+            // console.log(elapsedTime, dTheta, chart.options.rotation);
+            
+            dTheta = updateThetaCheckpoint(elapsedTime, dTheta);
+
             if (dTheta > 1) {
                 dTheta += aTheta;
             } 
             chart.options.rotation = 0;
         } else if (dTheta == 1 && chart.options.rotation == (randomDegree + 90) % 360) {
             clearInterval(rotationInterval);
-            hasFinished = true;
             console.log('done spinning');
         }
-    }, 11);
+    }, 10);
 });
 
 
@@ -318,13 +454,16 @@ socket.on('reveal-letter', (letter) => {
     clearInterval(rotationInterval);
 
     // reset animation
-    chart.options.animation.duration = 800;
+    chart.options.animation.duration = 1500;
 
     // reset client chart data
     let ds = chart.data.datasets[0];
 
     ds.data = [0, 0];
+    
     chart.data.labels = ['1', '2'];
+    chart.data.datasets[1].data[0] = 0;
+    chart.data.datasets[1].data[1] = 100;
 
     // edit chart display options
     chart.options.rotation = 0;
@@ -334,6 +473,7 @@ socket.on('reveal-letter', (letter) => {
     socket.emit('request-update');
 
     voteButton.disabled = false;
+    chart.options.animation.duration = 800;
 });
 
 // Input forms
@@ -352,7 +492,7 @@ form.addEventListener('submit', (e) => {
         console.log(userLetter);
 
         // Lock the button
-        voteButton.disabled = true;
+        // voteButton.disabled = true;
 
         socket.emit('vote', userLetter.toUpperCase());
 
@@ -362,3 +502,5 @@ form.addEventListener('submit', (e) => {
     }
     
 });
+
+greetUser();
