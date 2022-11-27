@@ -101,7 +101,8 @@ app.post('/joingame', (req, res) => {
 app.get('/join/:roomName', function(req, res){
     // Check if attempt to join room not already exists
     if (!(req.params.roomName in allRooms)) {
-        res.send('Doesn\'t exist!');
+        res.status('400');
+        res.sendFile(__dirname + '/client/400.html');
     } else {
         res.sendFile(__dirname + '/client/game.html');
     }
@@ -457,6 +458,13 @@ if (DEBUG) {
     addNewRoom('dev_test');
     resetGame('dev_test');
 }
+
+//The 404 Route
+app.use((req, res, next) => {
+    res.status(404).sendFile(__dirname + '/client/404.html');
+})
+  
+
 
 const PORT = process.env.PORT || 3000;
 
