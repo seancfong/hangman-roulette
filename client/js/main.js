@@ -476,6 +476,80 @@ socket.on('reveal-letter', (letter) => {
     chart.options.animation.duration = 800;
 });
 
+const notifyEarned = (playersEarned) => {
+    console.log(playersEarned);
+    let title;
+    let icon = 'info';
+    let pointsEarned;
+    let bulletList = '<br/>The following players earned points:<br/><ul>';
+
+    if (playersEarned.reason == 'inWord') {
+        let found = false;
+        for (let user of playersEarned.users) {
+            bulletList += `<li>${user.playerName}`
+            if (user.id === socket.id) { 
+                console.log('in word');
+                // Client earned points
+                icon = 'success';
+                title = 'Your letter was correct!';
+                pointsEarned = '+3 points';
+                found = true;
+            }
+        }
+        if (!found) {
+            icon = 'info';
+            title = 'Your letter was not chosen.';
+            pointsEarned = '+0 points';
+        }
+    } else if (playersEarned.reason == 'notInWord') {
+        let found = false;
+        for (let user of playersEarned.users) {
+            bulletList += `<li>${user.playerName}`
+            if (user.id === socket.id) { 
+                console.log('in word');
+                // Client earned points
+                icon = 'info';
+                title = 'An incorrect letter was selected. At least it\'s not yours!';
+                pointsEarned = '+1 point';
+                found = true;
+            }
+        }
+        if (!found) {
+            icon = 'error';
+            title = 'Your letter was incorrect!';
+            pointsEarned = '+0 points';
+            
+        }
+    } else if (playersEarned.reason == 'duplicate') {
+        title = 'The letter is already correct. Nice try!';
+        pointsEarned = '+0 points';
+        bulletList = '';
+    } else {
+        title = 'Nobody earned any points.';
+        pointsEarned = '+0 points';
+        bulletList = '';
+    }
+
+    bulletList += '</ul>'; 
+
+    const Toast = Swal.mixin({
+        toast: true,
+        padding: '2em 3em 0.5em 3em',
+        position: 'top',
+        showConfirmButton: false,
+        timer: 5000,
+        timerProgressBar: true,
+    })
+    
+    Toast.fire({
+        icon: icon,
+        title: title,
+        html: pointsEarned + bulletList
+    })
+}
+
+socket.on('points-notify', notifyEarned);
+
 // Input forms
 const form = document.getElementById('vote-form');
 form.addEventListener('submit', (e) => {
@@ -492,7 +566,7 @@ form.addEventListener('submit', (e) => {
         console.log(userLetter);
 
         // Lock the button
-        // voteButton.disabled = true;
+        voteButton.disabled = true;
 
         socket.emit('vote', userLetter.toUpperCase());
 
