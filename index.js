@@ -37,7 +37,25 @@ const userByID = (id) => {
     return null;
 }
 
+// Function for cleaning empty rooms
+const clearEmptyRooms = () => {
+    console.log('Checking room for cleaning');
+    for ([roomName, roomData] of Object.entries(allRooms)) {
+        if (roomData.timeEnded) {
+            if (Date.now() - roomData.timeEnded > (1000 * 15)) {  // delete after > 15 seconds of continuous empty
+                console.log('Deleted room ' + roomName);
+                delete allRooms[roomName];
+                console.log(allRooms);
+            }
+        }
+        
+    }
+};
+
 const addNewRoom = (roomName) => {
+    // When new room is added, check and clear empty rooms
+    clearEmptyRooms();
+
     allRooms[roomName] = {
         roomName: roomName,
         users: [],
@@ -49,6 +67,7 @@ const addNewRoom = (roomName) => {
         chartData: {},
         totalVotes: 0,
         openVoting: true,
+        timeEnded: null
     };
 }
 
@@ -319,6 +338,10 @@ io.on('connection', socket => {
 
         console.log(allRooms[user.roomName].users);
         emitToRoom(socket, 'update-playerlist', false, allRooms[user.roomName].users);
+
+        if (allRooms[user.roomName].timeEnded) {
+            allRooms[user.roomName].timeEnded = null;
+        }
     });
 
     socket.on('vote', (letter) => {
@@ -392,10 +415,21 @@ io.on('connection', socket => {
             }
         }
 
-        console.log('updated player list: ', userArray);
+        // console.log('updated player list: ', userArray);
         if (allRooms[roomByID(socket.id)]) {
             emitToRoom(socket, 'update-playerlist', false, userArray);
+
+            // delete room if empty and older than 
+            if ((allRooms[roomByID(socket.id)].users.length == 0)){
+                if (!allRooms[roomByID(socket.id)].timeEnded) {
+                    allRooms[roomByID(socket.id)].timeEnded = Date.now();
+                } 
+            }
         }
+
+        
+
+        console.log(allRooms);
     })
 
 });
@@ -463,8 +497,6 @@ if (DEBUG) {
 app.use((req, res, next) => {
     res.status(404).sendFile(__dirname + '/client/404.html');
 })
-  
-
 
 const PORT = process.env.PORT || 3000;
 

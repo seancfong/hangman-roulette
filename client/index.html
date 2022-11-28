@@ -8,7 +8,17 @@
     <!-- Bootstrap CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Zenh87qX5JnK2Jl0vWa8Ck2rdkQ2Bzep5IDxbcnCeuOxjzrPF/et3URy9Bv1WTRi" crossorigin="anonymous">
 
+    <!-- 'Hangman Roulette' Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bitter:wght@400&family=Poiret+One&display=swap" rel="stylesheet">    
+    
     <style>
+        h1 {
+            font-family: 'Bitter', cursive;
+            font-weight: 400;
+        }
+
         #form-with-background {
             background-color: #e0e0e0;
             padding-top: 3rem;
@@ -42,7 +52,7 @@
             padding-top: 1rem;
             padding-bottom: 1rem;
             margin: auto;
-            width: 50%;
+            width: 65%;
         }
 
         #canvas-container {
@@ -64,12 +74,12 @@
 <body>
     <div id="form-with-background" class="align-items-center vh-100">
         <div id="form-container">
-            <div class="text-center" id="form-container-inner" onmouseover="enterWheel()" onmouseout="leaveWheel()">
-                <h1>Hangman Roulette</h1>
+            <div class="text-center" id="form-container-inner" onmouseenter="enterWheel()" onmouseleave="leaveWheel()">
+                <h1 class="display-5">Hangman Roulette</h1>
                 <p class="fw-normal">Create or Join Room</p>
                 <form action="/joingame" method="post">
                     <input type="text" placeholder="Room Name" name="roomName">
-                    <input type="submit" class="btn btn-success">
+                    <input type="submit" class="btn btn-success btn-sm">
                 </form>
             </div>
         </div>
@@ -97,7 +107,7 @@
                 {
                     label: 'Vote Data',
                     data: [1, 1, 1, 1, 1],
-                    backgroundColor: ['#264653', '#2a9d8f', '#e9c46a', '#f4a261', '#e76f51'],
+                    backgroundColor: ['#9f86c0', '#2a9d8f', '#e9c46a', '#f4a261', '#e76f51'],
                     cutout: '90%'
                 }
             ],
@@ -118,7 +128,10 @@
                 ctx.fillText(options.chartText, (width / 2), top + (height / 2) + (options.fontSize * 0.34));
             }
         }
-            
+
+        const hoverColor = '#e0e0e0';
+        const idleColor = '#eee';
+        
         const chart = new Chart(ctx, {
             type: 'doughnut',
             data: chartData,
@@ -129,9 +142,9 @@
                         display: false
                     }, 
                     counter: {
-                        fontColor: '#ddd',
+                        fontColor: idleColor,
                         fontSize: 130,
-                        fontFamily: 'sans-serif',
+                        fontFamily: 'Bitter, Arial',
                         chartText: '?'
                     },
                 },
@@ -147,14 +160,14 @@
 
         chart.update();
 
-        const defaultDTheta = 1.2;
+        const defaultDTheta = 1.3;
 
         var dThetaMax = defaultDTheta;
-        const dThetaMin = 0.15;
+        const dThetaMin = 0.5;
 
         let dTheta = defaultDTheta;
         let aTheta = 1;
-        let letterArray = ['A', 'B', 'C', 'D', 'E'];
+        let letterArray = ['S', 'T', 'A', 'R', 'T'];
         let count = 0;
 
         chart.options.plugins.counter.fontSize = chart.width * 0.55;
@@ -181,9 +194,15 @@
         var enterInterval;
         var intervalCount = 0;
 
+        var onAnimation = false;
+
         const enterWheel = () => {
-            enterInterval = setInterval(() => {
-                if (intervalCount < 12) {
+            // If haven't done animation, do it once
+            if (!onAnimation) {
+                chart.options.plugins.counter.fontColor = hoverColor;
+                enterInterval = setInterval(() => {
+                if (intervalCount < 14) {
+                    onAnimation = true;
                     dThetaMax = 7;
                     aTheta = 1.05;
                 } else {
@@ -191,12 +210,16 @@
                 }
                 intervalCount++;
             }, 50);
+            }
+            
 
         };
 
         const leaveWheel = () => {
-            aTheta = 1.05;
+            chart.options.plugins.counter.fontColor = idleColor;
+            aTheta = 1.01;
             intervalCount = 0;
+            onAnimation = false;
             clearInterval(enterInterval);
             dThetaMax = defaultDTheta;
         };

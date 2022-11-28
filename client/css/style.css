@@ -138,6 +138,10 @@ p {
     padding: 0;
 }
 
+h1 {
+    font-family: 'Bitter', cursive;
+}
+
 h3 {
     font-size: 20px;
 }
