@@ -118,7 +118,8 @@ const chart = new Chart(ctx, {
         },
         responsive: true,
         animation: {
-            duration: 800
+            duration: 800,
+            animateRotate: true
         }
         
     }, 
@@ -189,7 +190,6 @@ const greetUser = async () => {
 
         chart.options.animation.duration = 800;
 
-        voteButton.disabled = false;
         socket.emit('request-update');
     }
 };
@@ -278,6 +278,16 @@ socket.on('require-reconnect', () => {
 socket.on('update-playerlist', (users) => {
     console.log('updating player list', playerBox.children, users);
     removeAllChildNodes(playerBox);
+
+    // sort by descending score
+    users.sort((p1, p2) => {
+        if (p1.points > p2.points) {
+            return -1;
+        } else if (p1.points < p2.points) {
+            return 1;
+        }
+        return 0;
+    });
 
     for (let userInfo of users) {
         var li = document.createElement('li');
@@ -531,6 +541,13 @@ const notifyEarned = (playersEarned) => {
     }
 
     bulletList += '</ul>'; 
+
+    // Overwrite text if user abstained from voting
+    if (playersEarned.abstained.find((usr) => usr.id === socket.id)) {
+        icon = 'error';
+        title = 'You did not vote for the previous round';
+        pointsEarned = '+0 points';
+    }
 
     const Toast = Swal.mixin({
         toast: true,

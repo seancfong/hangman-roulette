@@ -11,7 +11,7 @@ const server = http.createServer(app);
 const io = socketio(server);
 
 const DEBUG = true;
-const TIMER_LENGTH = 10000;  // 15000
+const TIMER_LENGTH = 15000;  // 15000
 const SPIN_LENGTH = 12000;  // 12000
 const SPIN_DELAY = 3000;  // 3000
 
@@ -37,7 +37,25 @@ const userByID = (id) => {
     return null;
 }
 
+// Function for cleaning empty rooms
+const clearEmptyRooms = () => {
+    console.log('Checking room for cleaning');
+    for ([roomName, roomData] of Object.entries(allRooms)) {
+        if (roomData.timeEnded) {
+            if (Date.now() - roomData.timeEnded > (1000 * 15)) {  // delete after > 15 seconds of continuous empty
+                console.log('Deleted room ' + roomName);
+                delete allRooms[roomName];
+                console.log(allRooms);
+            }
+        }
+        
+    }
+};
+
 const addNewRoom = (roomName) => {
+    // When new room is added, check and clear empty rooms
+    clearEmptyRooms();
+
     allRooms[roomName] = {
         roomName: roomName,
         users: [],
@@ -49,6 +67,7 @@ const addNewRoom = (roomName) => {
         chartData: {},
         totalVotes: 0,
         openVoting: true,
+        timeEnded: null
     };
 }
 
@@ -101,7 +120,8 @@ app.post('/joingame', (req, res) => {
 app.get('/join/:roomName', function(req, res){
     // Check if attempt to join room not already exists
     if (!(req.params.roomName in allRooms)) {
-        res.send('Doesn\'t exist!');
+        res.status('400');
+        res.sendFile(__dirname + '/client/400.html');
     } else {
         res.sendFile(__dirname + '/client/game.html');
     }
@@ -237,12 +257,16 @@ const selectVote = (roomName) => {
 
         let playersEarned = {
             reason: '',
-            users: []
+            users: [],
+            abstained: []
         };
 
         // update the player scores
         for (let user of allRooms[roomName].users) {
             // console.log(allRooms[roomName].users, user);
+            if (!user.vote) {
+                playersEarned.abstained.push(user);
+            }
 
             // reward the players who guess right letter and spun by wheel
             if (inWords) {
@@ -314,6 +338,10 @@ io.on('connection', socket => {
 
         console.log(allRooms[user.roomName].users);
         emitToRoom(socket, 'update-playerlist', false, allRooms[user.roomName].users);
+
+        if (allRooms[user.roomName].timeEnded) {
+            allRooms[user.roomName].timeEnded = null;
+        }
     });
 
     socket.on('vote', (letter) => {
@@ -327,19 +355,21 @@ io.on('connection', socket => {
         var openVoting = allRooms[roomByID(socket.id)].openVoting;
         var activeTimer = allRooms[roomByID(socket.id)].activeTimer;
 
-        if (openVoting && !voteOptions[letter]) {
-            voteOptions[letter] = {
-                votes: 0,
-                label: letter
+        // store the vote in user object
+        let user = userByID(socket.id);
+
+        // only count vote if the user hasn't voted yet
+        if ((!user.vote) && openVoting) {
+            // if first time voting for a letter, add to record
+            if (!voteOptions[letter]) {
+                voteOptions[letter] = {
+                    votes: 0,
+                    label: letter
+                }
             }
-        }
 
-        if (openVoting) {
-            voteOptions[letter].votes += 1;
-
-            // store the vote in user object
-            let user = userByID(socket.id);
             user.vote = letter;
+            voteOptions[letter].votes += 1;
 
             allRooms[roomByID(socket.id)].totalVotes++;
             if (!activeTimer) {
@@ -385,10 +415,21 @@ io.on('connection', socket => {
             }
         }
 
-        console.log('updated player list: ', userArray);
+        // console.log('updated player list: ', userArray);
         if (allRooms[roomByID(socket.id)]) {
             emitToRoom(socket, 'update-playerlist', false, userArray);
+
+            // delete room if empty and older than 
+            if ((allRooms[roomByID(socket.id)].users.length == 0)){
+                if (!allRooms[roomByID(socket.id)].timeEnded) {
+                    allRooms[roomByID(socket.id)].timeEnded = Date.now();
+                } 
+            }
         }
+
+        
+
+        console.log(allRooms);
     })
 
 });
@@ -451,6 +492,11 @@ if (DEBUG) {
     addNewRoom('dev_test');
     resetGame('dev_test');
 }
+
+//The 404 Route
+app.use((req, res, next) => {
+    res.status(404).sendFile(__dirname + '/client/404.html');
+})
 
 const PORT = process.env.PORT || 3000;
 

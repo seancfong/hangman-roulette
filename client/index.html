@@ -8,13 +8,224 @@
     <!-- Bootstrap CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Zenh87qX5JnK2Jl0vWa8Ck2rdkQ2Bzep5IDxbcnCeuOxjzrPF/et3URy9Bv1WTRi" crossorigin="anonymous">
 
+    <!-- 'Hangman Roulette' Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bitter:wght@400&family=Poiret+One&display=swap" rel="stylesheet">    
+    
+    <style>
+        h1 {
+            font-family: 'Bitter', cursive;
+            font-weight: 400;
+        }
+
+        #form-with-background {
+            background-color: #e0e0e0;
+            padding-top: 3rem;
+            margin: auto;
+            position: relative;
+            height: 100vh;
+            width: 100vw;
+            max-width: 100%;
+            overflow: hidden;
+        }
+
+        #canvas-container,
+        #form-container {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            right: 0;
+            width: 100vw;
+            max-width: 100%;
+            height: 100vh;
+            margin: auto;
+        }
+
+        #form-container {
+            top: 75%;
+            z-index: 10;
+        }
+
+        #form-container-inner {
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+            margin: auto;
+            width: 65%;
+        }
+
+        #canvas-container {
+            display: block;
+            width: 100vw;
+            background: #eeeeee;
+        }
+
+        canvas {
+            position: relative;
+            margin: 0 auto;
+            width: 80vh;
+            padding: 1rem;
+        }
+    </style>
+
     <title>HOME | Hangman Roulette</title>
 </head>
 <body>
-    <h1>Hangman Roulette</h1>
-    <form action="/joingame" method="post">
-        <input type="text" placeholder="Room Name" name="roomName">
-        <input type="submit">
-    </form>
+    <div id="form-with-background" class="align-items-center vh-100">
+        <div id="form-container">
+            <div class="text-center" id="form-container-inner" onmouseenter="enterWheel()" onmouseleave="leaveWheel()">
+                <h1 class="display-5">Hangman Roulette</h1>
+                <p class="fw-normal">Create or Join Room</p>
+                <form action="/joingame" method="post">
+                    <input type="text" placeholder="Room Name" name="roomName">
+                    <input type="submit" class="btn btn-success btn-sm">
+                </form>
+            </div>
+        </div>
+        <div id="canvas-container">
+            <canvas id="background-chart"></canvas>
+        </div>
+        
+    </div>
+    <div>
+        <h1>
+            Test
+        </h1>
+    </div>
+
+    <!-- For Chart JS in background -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+
+    <!-- Animate the chart -->
+    <script>
+        var ctx = document.getElementById('background-chart');
+
+        var chartData = {
+            labels: ['1', '2', '3', '4', '5'],
+            datasets: [
+                {
+                    label: 'Vote Data',
+                    data: [1, 1, 1, 1, 1],
+                    backgroundColor: ['#9f86c0', '#2a9d8f', '#e9c46a', '#f4a261', '#e76f51'],
+                    cutout: '90%'
+                }
+            ],
+        };
+
+        const counterPlugin = {
+            id: 'counter',
+            beforeDraw(chart, args, options) {
+                const {ctx, chartArea: {
+                    top, right, bottom, left, width, height
+                }} = chart;
+            
+                ctx.save();
+                
+                ctx.font = options.fontSize + 'px ' + options.fontFamily;
+                ctx.textAlign = 'center';
+                ctx.fillStyle = options.fontColor;
+                ctx.fillText(options.chartText, (width / 2), top + (height / 2) + (options.fontSize * 0.34));
+            }
+        }
+
+        const hoverColor = '#e0e0e0';
+        const idleColor = '#eee';
+        
+        const chart = new Chart(ctx, {
+            type: 'doughnut',
+            data: chartData,
+            options: {
+                plugins: {
+                    tooltip: false,
+                    legend: {
+                        display: false
+                    }, 
+                    counter: {
+                        fontColor: idleColor,
+                        fontSize: 130,
+                        fontFamily: 'Bitter, Arial',
+                        chartText: '?'
+                    },
+                },
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: {
+                    duration: 0,
+                    animateRotate: true
+                }   
+            },
+            plugins: [counterPlugin]
+        });
+
+        chart.update();
+
+        const defaultDTheta = 1.3;
+
+        var dThetaMax = defaultDTheta;
+        const dThetaMin = 0.5;
+
+        let dTheta = defaultDTheta;
+        let aTheta = 1;
+        let letterArray = ['S', 'T', 'A', 'R', 'T'];
+        let count = 0;
+
+        chart.options.plugins.counter.fontSize = chart.width * 0.55;
+
+        let spinInterval = setInterval(() => {
+            if (dTheta > dThetaMax) {
+                dTheta = dThetaMax;
+            } else if (dTheta < dThetaMin) {
+                dTheta = dThetaMin;
+            }
+
+            chart.options.rotation += dTheta;
+            dTheta *= aTheta;
+
+            if (chart.options.rotation >= 360) {
+                chart.options.rotation %= 360;
+            }
+
+            chart.options.plugins.counter.chartText = letterArray[Math.floor(letterArray.length * chart.options.rotation / 360)];
+
+            chart.update();
+        }, 10);
+
+        var enterInterval;
+        var intervalCount = 0;
+
+        var onAnimation = false;
+
+        const enterWheel = () => {
+            // If haven't done animation, do it once
+            if (!onAnimation) {
+                chart.options.plugins.counter.fontColor = hoverColor;
+                enterInterval = setInterval(() => {
+                if (intervalCount < 14) {
+                    onAnimation = true;
+                    dThetaMax = 7;
+                    aTheta = 1.05;
+                } else {
+                    aTheta = 0.99;
+                }
+                intervalCount++;
+            }, 50);
+            }
+            
+
+        };
+
+        const leaveWheel = () => {
+            chart.options.plugins.counter.fontColor = idleColor;
+            aTheta = 1.01;
+            intervalCount = 0;
+            onAnimation = false;
+            clearInterval(enterInterval);
+            dThetaMax = defaultDTheta;
+        };
+
+
+    </script>
+
 </body>
 </html>
