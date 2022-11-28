@@ -34,8 +34,15 @@
         }
 
         #form-container {
-            top: 80%;
+            top: 75%;
             z-index: 10;
+        }
+
+        #form-container-inner {
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+            margin: auto;
+            width: 50%;
         }
 
         #canvas-container {
@@ -47,7 +54,8 @@
         canvas {
             position: relative;
             margin: 0 auto;
-            width: 60%;
+            width: 80vh;
+            padding: 1rem;
         }
     </style>
 
@@ -56,7 +64,7 @@
 <body>
     <div id="form-with-background" class="align-items-center vh-100">
         <div id="form-container">
-            <div class="text-center">
+            <div class="text-center" id="form-container-inner" onmouseover="enterWheel()" onmouseout="leaveWheel()">
                 <h1>Hangman Roulette</h1>
                 <p class="fw-normal">Create or Join Room</p>
                 <form action="/joingame" method="post">
@@ -94,6 +102,22 @@
                 }
             ],
         };
+
+        const counterPlugin = {
+            id: 'counter',
+            beforeDraw(chart, args, options) {
+                const {ctx, chartArea: {
+                    top, right, bottom, left, width, height
+                }} = chart;
+            
+                ctx.save();
+                
+                ctx.font = options.fontSize + 'px ' + options.fontFamily;
+                ctx.textAlign = 'center';
+                ctx.fillStyle = options.fontColor;
+                ctx.fillText(options.chartText, (width / 2), top + (height / 2) + (options.fontSize * 0.34));
+            }
+        }
             
         const chart = new Chart(ctx, {
             type: 'doughnut',
@@ -103,31 +127,79 @@
                     tooltip: false,
                     legend: {
                         display: false
-                    }
+                    }, 
+                    counter: {
+                        fontColor: '#ddd',
+                        fontSize: 130,
+                        fontFamily: 'sans-serif',
+                        chartText: '?'
+                    },
                 },
                 responsive: true,
                 maintainAspectRatio: false,
                 animation: {
                     duration: 0,
                     animateRotate: true
-                }
-                
-            }
+                }   
+            },
+            plugins: [counterPlugin]
         });
 
         chart.update();
 
-        let dTheta = 0.2;
+        const defaultDTheta = 1.2;
+
+        var dThetaMax = defaultDTheta;
+        const dThetaMin = 0.15;
+
+        let dTheta = defaultDTheta;
+        let aTheta = 1;
+        let letterArray = ['A', 'B', 'C', 'D', 'E'];
+        let count = 0;
+
+        chart.options.plugins.counter.fontSize = chart.width * 0.55;
 
         let spinInterval = setInterval(() => {
+            if (dTheta > dThetaMax) {
+                dTheta = dThetaMax;
+            } else if (dTheta < dThetaMin) {
+                dTheta = dThetaMin;
+            }
+
             chart.options.rotation += dTheta;
+            dTheta *= aTheta;
 
             if (chart.options.rotation >= 360) {
                 chart.options.rotation %= 360;
             }
 
+            chart.options.plugins.counter.chartText = letterArray[Math.floor(letterArray.length * chart.options.rotation / 360)];
+
             chart.update();
         }, 10);
+
+        var enterInterval;
+        var intervalCount = 0;
+
+        const enterWheel = () => {
+            enterInterval = setInterval(() => {
+                if (intervalCount < 12) {
+                    dThetaMax = 7;
+                    aTheta = 1.05;
+                } else {
+                    aTheta = 0.99;
+                }
+                intervalCount++;
+            }, 50);
+
+        };
+
+        const leaveWheel = () => {
+            aTheta = 1.05;
+            intervalCount = 0;
+            clearInterval(enterInterval);
+            dThetaMax = defaultDTheta;
+        };
 
 
     </script>
