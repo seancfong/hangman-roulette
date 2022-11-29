@@ -41,14 +41,17 @@ const userByID = (id) => {
 const clearEmptyRooms = () => {
     console.log('Checking room for cleaning');
     for ([roomName, roomData] of Object.entries(allRooms)) {
+        console.log('Checking ' + roomName);
         if (roomData.timeEnded) {
             if (Date.now() - roomData.timeEnded > (1000 * 15)) {  // delete after > 15 seconds of continuous empty
                 console.log('Deleted room ' + roomName);
                 delete allRooms[roomName];
-                console.log(allRooms);
+            }
+        } else {
+            if (roomData.users.length == 0) {
+                roomData.timeEnded = Date.now();
             }
         }
-        
     }
 };
 
@@ -198,7 +201,7 @@ const selectVote = (roomName) => {
         // console.log(chartData.labels[pos], chartData.data[pos]);
         for (let j = 0; j < chartData.data[pos]; j++){
             allVotes.push(chartData.labels[pos]);
-            console.log(chartData.labels[pos]);
+            // console.log(chartData.labels[pos]);
         }   
     }
     console.log(`[${roomName}] allVotes `, allVotes);
@@ -336,7 +339,7 @@ io.on('connection', socket => {
         console.log(`Updating room ${roomByID(socket.id)}`);
         emitToRoom(socket, 'update', true);
 
-        console.log(allRooms[user.roomName].users);
+        // console.log(allRooms[user.roomName].users);
         emitToRoom(socket, 'update-playerlist', false, allRooms[user.roomName].users);
 
         if (allRooms[user.roomName].timeEnded) {
@@ -387,7 +390,7 @@ io.on('connection', socket => {
             emitToRoom(socket, 'update-playerlist', false, userArray);
         }
 
-        console.log(voteOptions);
+        // console.log(voteOptions);
     });
 
     socket.on('updateData', (data) => {
@@ -400,7 +403,7 @@ io.on('connection', socket => {
     });
 
     socket.on('disconnect', (reason) => {
-        console.log('disconnect', socket.id);
+        console.log('disconnect ', socket.id, reason);
         let userArray = [];
 
         if (socketIDRooms[socket.id]) {
@@ -427,9 +430,7 @@ io.on('connection', socket => {
             }
         }
 
-        
-
-        console.log(allRooms);
+        // console.log(allRooms);
     })
 
 });
@@ -438,7 +439,8 @@ io.on('connection', socket => {
 
 // Game-handling functions
 const generateWords = (roomName) => {
-    let genWords = randomWords({exactly:2, wordsPerString:1, maxLength:8, formatter: (word) => word.toUpperCase()});
+    let genWords = randomWords({exactly:1, wordsPerString:1, maxLength:8, formatter: (word) => word.toUpperCase()});
+    console.log(`[${roomName}] Words: [${genWords}]`);
     // genWords = ['X', 'Y'];
     for (let word of genWords) {
         let wordArray = [];
@@ -465,11 +467,6 @@ const resetGameLoop = (roomName) => {
     allRooms[roomName].totalVotes = 0;
     allRooms[roomName].voteOptions = {};
     allRooms[roomName].openVoting = true;
-
-    if (DEBUG) {
-        console.log(allRooms[roomName].voteOptions);
-        console.log(allRooms[roomName].curWords, allRooms[roomName].wordStates);
-    }
 };
 
 const resetGame = (roomName) => {
