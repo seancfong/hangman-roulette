@@ -263,10 +263,10 @@ socket.on('require-reconnect', () => {
     Swal.fire({
         icon: 'error',
         title: 'Oops...',
-        text: 'The server engineering monkeys tripped over a few cables. You may have to restart your game.',
+        text: 'You have been logged out due to inactivity. You may have to restart your game.',
         showCancelButton: false,
         footer: 'Sorry for the inconvenience!',
-        confirmButtonText: 'Back to homepage',
+        confirmButtonText: 'Back to home',
         allowOutsideClick: false,
         allowEscapeKey: false,
     }).then((result) => {
