@@ -127,7 +127,7 @@ const chart = new Chart(ctx, {
 });
 
 // Connect to the server
-const socket = io('/', {forceNew: true});
+const socket = io();
 
 const roomName = window.location.pathname.split("/").at(-2);
 console.log( roomName );
