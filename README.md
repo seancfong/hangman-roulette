@@ -26,7 +26,7 @@ Before you begin, you will need to have the following installed on your machine:
 Navigate to a directory and paste the following command:
 
 ```bash
-https://github.com/seancfong/hangman-roulette.git
+git clone https://github.com/seancfong/hangman-roulette.git
 ```
 
 ### Step 2: Install dependencies
