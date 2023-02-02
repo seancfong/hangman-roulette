@@ -12,7 +12,7 @@ I created a variation of hangman by introducing a system that encouraged both te
 5. If a letter is not in the word, then everyone who did not vote the letter gets a point.
 6. Players who don't vote get no points.
 
-![](media\gameplay.gif)
+![](https://raw.githubusercontent.com/seancfong/hangman-roulette/main/media/gameplay.gif)
 
 ## Prerequisites
 Before you begin, you will need to have the following installed on your machine:
